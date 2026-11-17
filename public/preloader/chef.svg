@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 620" width="100%" height="100%">
+  <!-- ========================================================================= -->
+  <!-- MRA MASTER CHEF MASCOT PLACEHOLDER (PRELOADER ARTWORK)                    -->
+  <!-- Replace this file or add layered parts in /public/preloader/               -->
+  <!-- Pose: Toque, curled handlebar mustache, double-breasted coat, red neckerchief -->
+  <!-- Left hand: raised holding plate of golden snacks + steam                  -->
+  <!-- Right hand: open welcoming / presenting gesture                           -->
+  <!-- ========================================================================= -->
+
+  <defs>
+    <!-- Soft Drop Shadows -->
+    <filter id="chefGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="plateGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#ff5a1f" flood-opacity="0.35" />
+    </filter>
+
+    <!-- Gradients -->
+    <linearGradient id="coatGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="70%" stopColor="#f3eee3" />
+      <stop offset="100%" stopColor="#e5ded0" />
+    </linearGradient>
+
+    <linearGradient id="coatShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="100%" stopColor="#d8d0bf" />
+    </linearGradient>
+
+    <linearGradient id="toqueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="85%" stopColor="#ede6d6" />
+      <stop offset="100%" stopColor="#dcd4c0" />
+    </linearGradient>
+
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ffdfbe" />
+      <stop offset="100%" stopColor="#e8b98a" />
+    </linearGradient>
+
+    <linearGradient id="neckerchiefGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ff4020" />
+      <stop offset="60%" stopColor="#d91e0a" />
+      <stop offset="100%" stopColor="#9b0f02" />
+    </linearGradient>
+
+    <linearGradient id="goldPlate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ffe5a3" />
+      <stop offset="40%" stopColor="#d4a24c" />
+      <stop offset="100%" stopColor="#8c6420" />
+    </linearGradient>
+
+    <linearGradient id="snackGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ffbb55" />
+      <stop offset="60%" stopColor="#d97706" />
+      <stop offset="100%" stopColor="#92400e" />
+    </linearGradient>
+
+    <radialGradient id="steamGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
+      <stop offset="60%" stopColor="#ffaa66" stopOpacity="0.25" />
+      <stop offset="100%" stopColor="#ff5a1f" stopOpacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- ==================== CHEF BODY GROUP ==================== -->
+  <g id="chef-root">
+    
+    <!-- 1. BODY COAT (Double-Breasted White Chef Jacket) -->
+    <g id="chef-body">
+      <!-- Torso -->
+      <path d="M190 280 C175 320, 160 380, 155 490 L345 490 C340 380, 325 320, 310 280 Z" fill="url(#coatGrad)" stroke="#c5bca9" stroke-width="2" />
+      <!-- Coat Overlap Placket -->
+      <path d="M225 285 L225 490" stroke="#b3a995" stroke-width="2" stroke-linecap="round" />
+      <path d="M225 285 Q250 310 275 295" fill="none" stroke="#b3a995" stroke-width="2" />
+      <!-- Double Breasted Buttons (Gold/Bronze Rivets) -->
+      <!-- Left Column -->
+      <circle cx="210" cy="330" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="210" cy="370" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="210" cy="410" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="210" cy="450" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <!-- Right Column -->
+      <circle cx="255" cy="330" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="255" cy="370" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="255" cy="410" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <circle cx="255" cy="450" r="5" fill="#d4a24c" stroke="#8c6420" stroke-width="1.5" />
+      <!-- Mandarin Collar -->
+      <path d="M210 280 Q250 295 290 280 L295 260 Q250 272 205 260 Z" fill="url(#coatShadow)" stroke="#b3a995" stroke-width="2" />
+    </g>
+
+    <!-- 2. RED NECKERCHIEF -->
+    <g id="chef-neckerchief">
+      <path d="M212 268 Q250 288 288 268 Q270 310 250 325 Q230 310 212 268 Z" fill="url(#neckerchiefGrad)" stroke="#7a0a00" stroke-width="1.5" />
+      <!-- Neckerchief Knot -->
+      <ellipse cx="250" cy="290" rx="9" ry="8" fill="#e02810" stroke="#7a0a00" stroke-width="1.5" />
+      <path d="M246 295 L242 320 L254 316 L253 295 Z" fill="#b81c08" />
+    </g>
+
+    <!-- 3. HEAD & FACE -->
+    <g id="chef-head">
+      <!-- Neck -->
+      <rect x="232" y="240" width="36" height="28" rx="4" fill="url(#skinGrad)" />
+      <!-- Ears -->
+      <circle cx="205" cy="222" r="11" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1.5" />
+      <circle cx="295" cy="222" r="11" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1.5" />
+      <!-- Jaw & Cheeks -->
+      <ellipse cx="250" cy="220" rx="46" ry="42" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1.5" />
+      <!-- Rosy Cheeks -->
+      <ellipse cx="222" cy="225" rx="8" ry="5" fill="#ff7070" opacity="0.3" />
+      <ellipse cx="278" cy="225" rx="8" ry="5" fill="#ff7070" opacity="0.3" />
+      <!-- Friendly Eyes (Happy Curved Arcs) -->
+      <path d="M225 204 Q233 197 241 204" fill="none" stroke="#2a1810" stroke-width="3" stroke-linecap="round" />
+      <path d="M259 204 Q267 197 275 204" fill="none" stroke="#2a1810" stroke-width="3" stroke-linecap="round" />
+      <!-- Eyebrows -->
+      <path d="M222 195 Q233 189 242 196" fill="none" stroke="#3b2219" stroke-width="2.5" stroke-linecap="round" />
+      <path d="M258 196 Q267 189 278 195" fill="none" stroke="#3b2219" stroke-width="2.5" stroke-linecap="round" />
+      <!-- Button Nose -->
+      <ellipse cx="250" cy="214" rx="7" ry="5" fill="#dba06f" />
+      <!-- Warm Smile -->
+      <path d="M236 226 Q250 242 264 226" fill="none" stroke="#4a1810" stroke-width="2.5" stroke-linecap="round" />
+
+      <!-- BIG CURLED HANDLEBAR MUSTACHE (Signature Arab/Mediterranean Master Chef) -->
+      <g id="handlebar-mustache">
+        <!-- Left curled wing -->
+        <path d="M250 220 C238 214, 218 210, 202 218 C188 226, 185 240, 192 245 C197 248, 206 244, 210 236 C220 222, 236 225, 250 224 Z" fill="#2d170e" stroke="#180b06" stroke-width="1" />
+        <!-- Right curled wing -->
+        <path d="M250 220 C262 214, 282 210, 298 218 C312 226, 315 240, 308 245 C303 248, 294 244, 290 236 C280 222, 264 225, 250 224 Z" fill="#2d170e" stroke="#180b06" stroke-width="1" />
+        <!-- Center Mustache Tuft -->
+        <ellipse cx="250" cy="221" rx="9" ry="5" fill="#3b2014" />
+      </g>
+    </g>
+
+    <!-- 4. TALL WHITE TOQUE (Chef Hat) -->
+    <g id="chef-toque">
+      <!-- Hat Band -->
+      <path d="M214 186 C214 180, 286 180, 286 186 L288 200 C288 203, 212 203, 212 200 Z" fill="#ede5d3" stroke="#b5ab95" stroke-width="2" />
+      <!-- Main Tall Toque Crown (Pleated Billowing Dome) -->
+      <path d="M214 186 C195 160, 175 110, 210 75 C230 55, 270 55, 290 75 C325 110, 305 160, 286 186 Z" fill="url(#toqueGrad)" stroke="#b5ab95" stroke-width="2" />
+      <!-- Toque Pleat Flutes -->
+      <path d="M228 184 C222 150, 218 115, 235 85" fill="none" stroke="#d5ccba" stroke-width="2" stroke-linecap="round" />
+      <path d="M250 183 C250 145, 250 110, 250 72" fill="none" stroke="#d5ccba" stroke-width="2" stroke-linecap="round" />
+      <path d="M272 184 C278 150, 282 115, 265 85" fill="none" stroke="#d5ccba" stroke-width="2" stroke-linecap="round" />
+      <!-- Top Puff Highlights -->
+      <circle cx="230" cy="80" r="16" fill="#ffffff" opacity="0.4" />
+      <circle cx="270" cy="80" r="16" fill="#ffffff" opacity="0.4" />
+      <circle cx="250" cy="70" r="18" fill="#ffffff" opacity="0.5" />
+    </g>
+
+    <!-- 5. PRESENTING ARM (Right side: Open welcoming gesture) -->
+    <g id="arm-present" class="chef-present-arm">
+      <!-- Sleeve -->
+      <path d="M190 295 C160 310, 120 340, 105 385 L125 398 C138 360, 168 335, 195 320 Z" fill="url(#coatGrad)" stroke="#c5bca9" stroke-width="2" />
+      <!-- Cuff -->
+      <ellipse cx="114" cy="392" rx="14" ry="8" transform="rotate(-30 114 392)" fill="#ede7d8" stroke="#b5ab95" stroke-width="1.5" />
+      <!-- Welcoming Hand (Open palm facing up/forward) -->
+      <g transform="translate(85, 375)">
+        <!-- Palm -->
+        <ellipse cx="18" cy="18" rx="12" ry="10" fill="url(#skinGrad)" />
+        <!-- Fingers stretched in hospitality -->
+        <path d="M14 12 C10 8, 4 10, 2 15 C0 18, 5 21, 10 19" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <path d="M16 10 C14 4, 7 5, 5 11" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <path d="M20 9 C20 3, 14 3, 12 9" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <path d="M25 10 C27 5, 22 4, 18 10" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <!-- Thumb -->
+        <path d="M18 20 C23 20, 28 23, 27 27 C25 30, 20 26, 17 22" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+      </g>
+    </g>
+
+    <!-- 6. PLATE ARM (Left side: Raised holding gold snacks plate) -->
+    <g id="arm-plate" class="chef-plate-arm">
+      <!-- Sleeve up to plate -->
+      <path d="M310 295 C340 305, 375 300, 395 240 L375 232 C358 280, 335 285, 305 280 Z" fill="url(#coatGrad)" stroke="#c5bca9" stroke-width="2" />
+      <!-- Cuff -->
+      <ellipse cx="388" cy="235" rx="13" ry="8" transform="rotate(30 388 235)" fill="#ede7d8" stroke="#b5ab95" stroke-width="1.5" />
+      <!-- Hand gripping underneath plate -->
+      <g transform="translate(380, 218)">
+        <ellipse cx="12" cy="10" rx="9" ry="7" fill="url(#skinGrad)" />
+        <!-- Fingers curled under platter rim -->
+        <rect x="7" y="2" width="5" height="10" rx="2.5" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <rect x="13" y="1" width="5" height="11" rx="2.5" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+        <rect x="19" y="3" width="5" height="10" rx="2.5" fill="url(#skinGrad)" stroke="#c99565" stroke-width="1" />
+      </g>
+
+      <!-- GOLDEN SERVING PLATTER / DISH -->
+      <g id="snack-platter" filter="url(#plateGlow)">
+        <!-- Dish Rim & Base -->
+        <ellipse cx="395" cy="216" rx="65" ry="16" fill="url(#goldPlate)" stroke="#7a5416" stroke-width="1.5" />
+        <ellipse cx="395" cy="214" rx="58" ry="12" fill="#fff1c4" opacity="0.4" />
+        <ellipse cx="395" cy="218" rx="48" ry="8" fill="#a07424" opacity="0.6" />
+
+        <!-- PILED GOLDEN ARABIC PASTRIES / SAMBOUSEK / KEBABS / ROLLS -->
+        <!-- Pastry 1 -->
+        <path d="M350 212 C355 200, 375 200, 380 212 Z" fill="url(#snackGrad)" stroke="#78350f" stroke-width="1" />
+        <!-- Pastry 2 (Center Crisp) -->
+        <path d="M370 210 C380 192, 405 192, 415 210 Z" fill="url(#snackGrad)" stroke="#78350f" stroke-width="1" />
+        <!-- Pastry 3 (Right) -->
+        <path d="M405 212 C412 198, 432 198, 438 212 Z" fill="url(#snackGrad)" stroke="#78350f" stroke-width="1" />
+        <!-- Top Garnish & Sesame/Spice flecks -->
+        <circle cx="392" cy="198" r="1.5" fill="#fef08a" />
+        <circle cx="398" cy="196" r="1.5" fill="#fef08a" />
+        <circle cx="375" cy="204" r="1.2" fill="#78350f" />
+        <circle cx="420" cy="204" r="1.2" fill="#78350f" />
+      </g>
+
+      <!-- STEAM WISPS RISING FROM HOT FRESH SNACKS -->
+      <g id="steam-wisps">
+        <path class="steam-1" d="M375 195 Q365 170 375 145 T365 110" fill="none" stroke="url(#steamGrad)" stroke-width="4" stroke-linecap="round" />
+        <path class="steam-2" d="M395 190 Q405 160 392 135 T400 95" fill="none" stroke="url(#steamGrad)" stroke-width="4.5" stroke-linecap="round" />
+        <path class="steam-3" d="M418 193 Q430 168 415 140 T425 105" fill="none" stroke="url(#steamGrad)" stroke-width="3.5" stroke-linecap="round" />
+      </g>
+    </g>
+
+  </g>
+</svg>

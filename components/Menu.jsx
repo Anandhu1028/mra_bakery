@@ -36,7 +36,7 @@ const MENU_IMAGES = {
   kr1: "/food_products/chickenbiriyani.jpg",
   kr2: "/food_products/1800e2d56a9c23e1ad9556be5e37f153.jpg",
   kr3: "/food_products/biriyani.png",
-  g4: "/food_products/alfarm.avif",
+  g4: "/food_products/alfarm.jpeg",
   g5: "/food_products/fishfry.jpg",
   w1: "/food_products/shawarma (1).png",
 };

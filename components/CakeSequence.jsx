@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useApp } from "@/context/AppContext";
 import {
   usePrefersReducedMotion,
   useSmoothScroll,
@@ -27,17 +26,13 @@ export const CAKE_SMOOTHING = 0.1;
 export const CAKE_TRACK_HEIGHT = "450vh";
 
 export default function CakeSequence() {
-  const { t } = useApp();
-  const { markImagesReady, scrollTo } = useSmoothScroll();
+  const { markImagesReady } = useSmoothScroll();
   const prefersReducedMotion = usePrefersReducedMotion();
 
   // DOM Refs
   const canvasRef = useRef(null);
   const trackRef = useRef(null);
   const stickyRef = useRef(null);
-  const textStage1Ref = useRef(null);
-  const textStage2Ref = useRef(null);
-  const textStage3Ref = useRef(null);
   const topBlendRef = useRef(null);
   const bottomBlendRef = useRef(null);
 
@@ -135,71 +130,8 @@ export default function CakeSequence() {
     [getNearestBitmap]
   );
 
-  // Text overlay updater
-  const updateOverlays = useCallback((progress) => {
-    // STAGE 1 (0.00 - 0.32): "THE ARTISAN PATISSERIE / HANDCRAFTED PERFECTION"
-    if (textStage1Ref.current) {
-      let op1 = 0;
-      let y1 = 0;
-      if (progress <= 0.32) {
-        if (progress < 0.04) {
-          op1 = 1;
-          y1 = 0;
-        } else if (progress > 0.23) {
-          op1 = Math.max(0, 1 - (progress - 0.23) / 0.09);
-          y1 = (1 - op1) * -20;
-        } else {
-          op1 = 1;
-          y1 = 0;
-        }
-      }
-      textStage1Ref.current.style.opacity = op1;
-      textStage1Ref.current.style.transform = `translateY(${y1}px)`;
-      textStage1Ref.current.style.pointerEvents = op1 > 0.1 ? "auto" : "none";
-    }
-
-    // STAGE 2 (0.35 - 0.68): "RICH BELGIAN CHOCOLATE / FORGED IN PASSION"
-    if (textStage2Ref.current) {
-      let op2 = 0;
-      let y2 = 25;
-      if (progress >= 0.33 && progress <= 0.69) {
-        if (progress < 0.42) {
-          op2 = (progress - 0.33) / 0.09;
-          y2 = (1 - op2) * 20;
-        } else if (progress > 0.59) {
-          op2 = Math.max(0, 1 - (progress - 0.59) / 0.09);
-          y2 = (1 - op2) * -20;
-        } else {
-          op2 = 1;
-          y2 = 0;
-        }
-      }
-      textStage2Ref.current.style.opacity = op2;
-      textStage2Ref.current.style.transform = `translateY(${y2}px)`;
-      textStage2Ref.current.style.pointerEvents = op2 > 0.1 ? "auto" : "none";
-    }
-
-    // STAGE 3 (0.70 - 1.00): "CELEBRATE EVERY MOMENT / THE MASTERPIECE"
-    if (textStage3Ref.current) {
-      let op3 = 0;
-      let y3 = 25;
-      if (progress >= 0.68) {
-        if (progress < 0.78) {
-          op3 = (progress - 0.68) / 0.10;
-          y3 = (1 - op3) * 20;
-        } else if (progress > 0.94) {
-          op3 = Math.max(0, 1 - (progress - 0.94) / 0.06);
-          y3 = (1 - op3) * -15;
-        } else {
-          op3 = 1;
-          y3 = 0;
-        }
-      }
-      textStage3Ref.current.style.opacity = op3;
-      textStage3Ref.current.style.transform = `translateY(${y3}px)`;
-      textStage3Ref.current.style.pointerEvents = op3 > 0.1 ? "auto" : "none";
-    }
-
+  // Entrance and exit blend updater
+  const updateBlends = useCallback((progress) => {
     // Dynamic Entrance & Exit Screen Blend
     // Entrance: starts solid black, dissolves cleanly as you scroll in
     if (topBlendRef.current) {
@@ -243,7 +175,7 @@ export default function CakeSequence() {
         lastRequestedFrameRef.current = roundedFrame;
         drawCompositeFrame(roundedFrame);
       }
-      updateOverlays(nextFrame / (CAKE_TOTAL_FRAMES - 1));
+      updateBlends(nextFrame / (CAKE_TOTAL_FRAMES - 1));
 
       if (Math.abs(targetFrameRef.current - nextFrame) < 0.01) {
         isLoopRunningRef.current = false;
@@ -254,7 +186,7 @@ export default function CakeSequence() {
     };
 
     rafIdRef.current = requestAnimationFrame(tick);
-  }, [drawCompositeFrame, updateOverlays]);
+  }, [drawCompositeFrame, updateBlends]);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -428,7 +360,7 @@ export default function CakeSequence() {
         currentFrameRef.current = 0;
         targetFrameRef.current = 0;
         drawCompositeFrame(0);
-        updateOverlays(0);
+        updateBlends(0);
       }
     }, trackRef.current);
 
@@ -464,13 +396,8 @@ export default function CakeSequence() {
     resizeCanvas,
     drawCompositeFrame,
     startRenderLoop,
-    updateOverlays,
+    updateBlends,
   ]);
-
-  const scrollToCakeHeadline = () => {
-    const el = document.getElementById("cake-headline");
-    if (el) scrollTo(el);
-  };
 
   return (
     <section
@@ -531,121 +458,6 @@ export default function CakeSequence() {
         {/* Subtle Film Grain */}
         <div className="absolute inset-0 pointer-events-none bg-film-grain opacity-20 mix-blend-overlay z-18" />
 
-        {/* 3-Stage Text Overlays - Locked firmly to the start/left edge */}
-        <div className="absolute inset-0 z-20 pointer-events-none w-full px-6 sm:px-10 md:px-14 lg:px-20 flex items-center text-start">
-          
-          {/* STAGE 1: "ARTISAN PATISSERIE / CRAFTED WITH DREAMS" */}
-          <div
-            ref={textStage1Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 1, transform: "translateY(0px)" }}
-          >
-            
-
-            <h2
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)] text-white"
-              style={{
-                letterSpacing: "0.02em",
-              }}
-            >
-              <>
-                CRAFTED
-                <br />
-                WITH
-                <br />
-                <span className="text-[#ef4444]">DREAMS.</span>
-              </>
-            </h2>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              {"Layers of velvety sponge, rich ganache, and golden spun sugar crafted fresh daily by master pastry chefs with three decades of legacy."}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={scrollToCakeHeadline}
-                className="pointer-events-auto px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                {"Explore Cakes"}
-              </button>
-            </div>
-          </div>
-
-          {/* STAGE 2: "VELVET CHOCOLATE / FORGED IN PASSION" */}
-          <div
-            ref={textStage2Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 0, transform: "translateY(25px)" }}
-          >
-            
-
-            <h2
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)] text-white"
-              style={{
-                letterSpacing: "0.02em",
-              }}
-            >
-              <>
-                FORGED IN
-                <br />
-                PURE
-                <br />
-                <span className="text-[#ef4444]">PASSION.</span>
-              </>
-            </h2>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              {"Imported single-origin cacao and Madagascar vanilla pods infused into every tier, offering sheer indulgence with every single slice."}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={scrollToCakeHeadline}
-                className="pointer-events-auto px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                {"Browse Cakes"}
-              </button>
-            </div>
-          </div>
-
-          {/* STAGE 3: "CELEBRATE EVERY MOMENT / SWEET DREAMS" */}
-          <div
-            ref={textStage3Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 0, transform: "translateY(25px)" }}
-          >
-           
-
-            <h2
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]"
-              style={{
-                letterSpacing: "0.02em",
-              }}
-            >
-              <span className="text-[#f5ecd9]">
-                CELEBRATE
-                <br />
-                SWEET
-                <br />
-              </span>
-              <span className="text-[#ef4444]">DREAMS.</span>
-            </h2>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              {"Custom cakes for every unforgettable occasion"}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={scrollToCakeHeadline}
-                className="pointer-events-auto px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                {"Explore Cakes Menu"}
-              </button>
-            </div>
-          </div>
-
-        </div>
       </div>
     </section>
   );

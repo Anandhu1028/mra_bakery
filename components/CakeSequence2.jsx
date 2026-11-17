@@ -40,7 +40,7 @@ function getFrameUrl(index) {
 }
 
 export default function CakeSequence2({ onProgressUpdate }) {
-  const { markImagesReady, scrollTo } = useSmoothScroll();
+  const { markImagesReady } = useSmoothScroll();
   const prefersReducedMotion = usePrefersReducedMotion();
 
   // DOM Refs
@@ -49,15 +49,6 @@ export default function CakeSequence2({ onProgressUpdate }) {
   const canvasRef = useRef(null);
   const ambientGlowRef = useRef(null);
   const bottomBlendRef = useRef(null);
-
-  // Text stage refs
-  const textStage1Ref = useRef(null);
-  const textStage2Ref = useRef(null);
-  const textStage3Ref = useRef(null);
-
-  // Timeline indicator refs
-  const progressBarRef = useRef(null);
-  const phaseLabelRef = useRef(null);
 
   // Engine Refs (state-less for zero re-render scroll performance)
   const bitmapsRef = useRef(new Array(CAKE2_TOTAL_FRAMES).fill(null));
@@ -197,89 +188,15 @@ export default function CakeSequence2({ onProgressUpdate }) {
     [getNearestBitmap]
   );
 
-  // ── Atmospheric Lighting & Text Stage Transitions ────────────────────────
+  // ── Atmospheric Lighting & Exit Blend ──────────────────────────────────
   const updateCinematicExperience = useCallback((progress) => {
-    // 1. Ambient Glow Depth Pulse (direct opacity, zero CSS transition clash)
+    // Ambient Glow Depth Pulse (direct opacity, zero CSS transition clash)
     if (ambientGlowRef.current) {
       const glowOpacity = 0.5 + Math.sin(progress * Math.PI) * 0.45;
       ambientGlowRef.current.style.opacity = glowOpacity.toFixed(2);
     }
 
-    // 2. Stage 1 Typography (0.00 – 0.32)
-    if (textStage1Ref.current) {
-      let op1 = 0;
-      let y1 = 0;
-      if (progress <= 0.32) {
-        if (progress < 0.03) {
-          op1 = 1;
-          y1 = 0;
-        } else if (progress > 0.23) {
-          op1 = Math.max(0, 1 - (progress - 0.23) / 0.09);
-          y1 = (1 - op1) * -24;
-        } else {
-          op1 = 1;
-          y1 = 0;
-        }
-      }
-      textStage1Ref.current.style.opacity = op1.toFixed(3);
-      textStage1Ref.current.style.transform = `translate3d(0, ${y1.toFixed(1)}px, 0)`;
-      textStage1Ref.current.style.pointerEvents = op1 > 0.1 ? "auto" : "none";
-    }
-
-    // 3. Stage 2 Typography (0.33 – 0.67)
-    if (textStage2Ref.current) {
-      let op2 = 0;
-      let y2 = 28;
-      if (progress >= 0.33 && progress <= 0.67) {
-        if (progress < 0.42) {
-          op2 = (progress - 0.33) / 0.09;
-          y2 = (1 - op2) * 24;
-        } else if (progress > 0.58) {
-          op2 = Math.max(0, 1 - (progress - 0.58) / 0.09);
-          y2 = (1 - op2) * -24;
-        } else {
-          op2 = 1;
-          y2 = 0;
-        }
-      }
-      textStage2Ref.current.style.opacity = op2.toFixed(3);
-      textStage2Ref.current.style.transform = `translate3d(0, ${y2.toFixed(1)}px, 0)`;
-      textStage2Ref.current.style.pointerEvents = op2 > 0.1 ? "auto" : "none";
-    }
-
-    // 4. Stage 3 Typography (0.68 – 1.00)
-    if (textStage3Ref.current) {
-      let op3 = 0;
-      let y3 = 28;
-      if (progress >= 0.68) {
-        if (progress < 0.77) {
-          op3 = (progress - 0.68) / 0.09;
-          y3 = (1 - op3) * 24;
-        } else if (progress > 0.93) {
-          op3 = Math.max(0, 1 - (progress - 0.93) / 0.07);
-          y3 = (1 - op3) * -18;
-        } else {
-          op3 = 1;
-          y3 = 0;
-        }
-      }
-      textStage3Ref.current.style.opacity = op3.toFixed(3);
-      textStage3Ref.current.style.transform = `translate3d(0, ${y3.toFixed(1)}px, 0)`;
-      textStage3Ref.current.style.pointerEvents = op3 > 0.1 ? "auto" : "none";
-    }
-
-    // 5. Timeline Progress Indicator
-    if (progressBarRef.current) {
-      progressBarRef.current.style.transform = `scaleX(${progress.toFixed(4)})`;
-    }
-    if (phaseLabelRef.current) {
-      const phase = progress < 0.35 ? "01 / 03" : progress < 0.70 ? "02 / 03" : "03 / 03";
-      if (phaseLabelRef.current.textContent !== phase) {
-        phaseLabelRef.current.textContent = phase;
-      }
-    }
-
-    // 6. Dynamic Exit Blend into Story Section
+    // Dynamic Exit Blend into Story Section
     if (bottomBlendRef.current) {
       let exitOp = 0;
       if (progress > 0.90) {
@@ -564,10 +481,6 @@ export default function CakeSequence2({ onProgressUpdate }) {
     updateCinematicExperience,
   ]);
 
-  const scrollToHeadline = useCallback(() => {
-    scrollTo?.("#cake-headline");
-  }, [scrollTo]);
-
   return (
     <section
       ref={trackRef}
@@ -625,153 +538,8 @@ export default function CakeSequence2({ onProgressUpdate }) {
           style={{ opacity: 0, willChange: "opacity" }}
         />
 
-        {/* Subtle Contrast Gradient for Left-Side Text Readability */}
+        {/* Subtle Left-Side Cinematic Shade */}
         <div className="absolute inset-y-0 start-0 w-full md:w-3/5 lg:w-1/2 pointer-events-none bg-gradient-to-r from-black/95 via-black/60 to-transparent z-17" />
-
-        {/* ── 3-Stage Luxury Typography Overlays ── */}
-        <div className="absolute inset-0 z-20 pointer-events-none w-full px-6 sm:px-10 md:px-14 lg:px-20 flex items-center text-start">
-          {/* STAGE 1: "CRAFTED WITH DREAMS" */}
-          <div
-            ref={textStage1Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 1, transform: "translate3d(0, 0px, 0)", willChange: "transform, opacity" }}
-          >
-            {/* Kicker Pill */}
-            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full border border-[#ef4444]/40 bg-[#ef4444]/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
-              <span className="text-[10px] sm:text-[11px] font-medium tracking-[0.25em] text-[#f5ecd9] uppercase">
-                Artisanal Patisserie • Est. 1996
-              </span>
-            </div>
-
-            <h1
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)] text-white"
-              style={{ letterSpacing: "0.02em" }}
-            >
-              CRAFTED
-              <br />
-              WITH
-              <br />
-              <span className="text-[#ef4444] italic">DREAMS.</span>
-            </h1>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              Layers of velvety sponge, rich ganache, and golden spun sugar crafted fresh daily by master pastry chefs with three decades of heritage.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={scrollToHeadline}
-                className="pointer-events-auto group px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
-              >
-                <span>Explore Signature Cakes</span>
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </button>
-            </div>
-          </div>
-
-          {/* STAGE 2: "FORGED IN PURE PASSION" */}
-          <div
-            ref={textStage2Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 0, transform: "translate3d(0, 28px, 0)", willChange: "transform, opacity" }}
-          >
-            {/* Kicker Pill */}
-            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full border border-[#d4a24c]/40 bg-[#d4a24c]/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#d4a24c]" />
-              <span className="text-[10px] sm:text-[11px] font-medium tracking-[0.25em] text-[#d4a24c] uppercase">
-                Single-Origin Craftsmanship
-              </span>
-            </div>
-
-            <h2
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)] text-white"
-              style={{ letterSpacing: "0.02em" }}
-            >
-              FORGED IN
-              <br />
-              PURE
-              <br />
-              <span className="text-[#ef4444] italic">PASSION.</span>
-            </h2>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              Single-origin Belgian cacao and hand-scraped Madagascar vanilla pods infused into every tier, offering sheer indulgence with every single slice.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={scrollToHeadline}
-                className="pointer-events-auto group px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
-              >
-                <span>Browse Our Heritage</span>
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </button>
-            </div>
-          </div>
-
-          {/* STAGE 3: "CELEBRATE SWEET DREAMS" */}
-          <div
-            ref={textStage3Ref}
-            className="max-w-md sm:max-w-lg lg:max-w-xl absolute start-6 sm:start-10 md:start-14 lg:start-20"
-            style={{ opacity: 0, transform: "translate3d(0, 28px, 0)", willChange: "transform, opacity" }}
-          >
-            {/* Kicker Pill */}
-            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full border border-white/20 bg-white/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              <span className="text-[10px] sm:text-[11px] font-medium tracking-[0.25em] text-[#f5ecd9] uppercase">
-                Bespoke Celebration Tiers
-              </span>
-            </div>
-
-            <h2
-              className="font-serif font-black text-4xl sm:text-6xl lg:text-[4.75rem] tracking-tight leading-[0.92] uppercase select-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]"
-              style={{ letterSpacing: "0.02em" }}
-            >
-              <span className="text-[#f5ecd9]">
-                CELEBRATE
-                <br />
-                SWEET
-                <br />
-              </span>
-              <span className="text-[#ef4444] italic">DREAMS.</span>
-            </h2>
-
-            <p className="text-xs sm:text-sm md:text-base text-[#f7ecd5]/85 font-sans font-light leading-relaxed max-w-sm sm:max-w-md my-6 drop-shadow-md">
-              Custom centerpiece cakes handcrafted to order for every unforgettable occasion, finished with Swiss meringue and 24K edible gold leaf.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={scrollToHeadline}
-                className="pointer-events-auto group px-7 py-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#b91c1c] hover:brightness-110 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-lg shadow-[#ef4444]/30 hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
-              >
-                <span>Explore Cake Menu</span>
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Luxury Bottom Timeline & Progress Indicator ── */}
-        <div className="absolute bottom-6 end-6 sm:bottom-8 sm:end-10 z-20 pointer-events-none flex items-center gap-4">
-          <span
-            ref={phaseLabelRef}
-            className="text-[11px] font-mono tracking-widest text-[#f5ecd9]/60 uppercase"
-          >
-            01 / 03
-          </span>
-          <div className="w-20 sm:w-28 h-[2px] bg-white/15 rounded-full overflow-hidden">
-            <div
-              ref={progressBarRef}
-              className="h-full bg-gradient-to-r from-[#ef4444] to-[#d4a24c] origin-left rounded-full"
-              style={{ transform: "scaleX(0)", willChange: "transform" }}
-            />
-          </div>
-        </div>
       </div>
     </section>
   );

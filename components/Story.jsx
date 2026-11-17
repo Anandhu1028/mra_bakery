@@ -39,7 +39,7 @@ export default function Story() {
     <section
       ref={sectionRef}
       id="story"
-      className="relative w-full py-28 md:py-36 bg-black text-[#f5ecd9] overflow-hidden bg-mashrabiya"
+      className="relative w-full py-28 md:py-36 bg-black text-[#fff8ed] overflow-hidden bg-mashrabiya"
     >
       {/* Subtle ambient glow top right & bottom left */}
       <div className="absolute top-0 end-0 w-96 h-96 bg-[#ef4444]/5 rounded-full blur-[140px] pointer-events-none" />
@@ -58,18 +58,18 @@ export default function Story() {
 
             {/* Main Statement */}
             <h2
-              className="text-[#f5ecd9] tracking-wide leading-[1.05] mb-8 uppercase"
+              className="text-[#fff8ed] tracking-wide leading-[1.05] mb-8 uppercase"
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
                 fontSize: "clamp(2.4rem, 7vw, 5.5rem)",
               }}
             >
               {t(STORY_CONTENT.heading)}{" "}
-              <span className="text-red-500">{STORY_CONTENT.heading.highlight}</span>
+              <span className="text-red-400">{STORY_CONTENT.heading.highlight}</span>
             </h2>
 
             {/* Paragraphs */}
-            <div className="space-y-5 text-base sm:text-lg text-[#f5ecd9]/80 font-light leading-relaxed">
+            <div className="space-y-5 text-base sm:text-lg text-[#fff8ed] font-light leading-relaxed">
               {STORY_CONTENT.paragraphs.en.map((p, idx) => (
                 <p key={idx} className="relative ps-4 border-s border-[#ef4444]/40">
                   {p}
@@ -163,13 +163,6 @@ export default function Story() {
                 </div>
               </div>
 
-              {/* Layer 5: Luxury Romantic Patisserie Pill */}
-              <div className="relative z-20 mt-4 inline-flex items-center gap-2.5 px-4 sm:px-5 py-2 rounded-full bg-black/85 backdrop-blur-md border border-[#ffffff]/40 group-hover:border-rose-500/70 shadow-[0_8px_30px_rgba(0,0,0,0.85)] transition-all duration-500">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.24em] text-[#f5ecd9] font-mono font-medium">
-                  ROMANTIC PATISSERIE • RED VELVET & ROSE GANACHE
-                </span>
-              </div>
             </div>
           </div>
         </div>

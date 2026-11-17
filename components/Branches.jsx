@@ -25,8 +25,9 @@ export default function Branches() {
     <section
       ref={sectionRef}
       id="branches"
-      className="relative w-full py-28 md:py-36 bg-black text-[#f5ecd9] overflow-hidden"
+      className="relative w-full pt-[46px] pb-28 md:pb-36 bg-white text-[#2d241d] overflow-hidden"
     >
+      <div className="absolute -top-40 end-0 h-96 w-96 rounded-full bg-[#d4a24c]/10 blur-[130px] pointer-events-none" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <div
@@ -35,10 +36,13 @@ export default function Branches() {
           }`}
         >
 
-          <h2 className="font-serif text-3xl sm:text-5xl font-normal text-[#f5ecd9] tracking-tight">
-            {"Find Us Across Kerala & Dubai"}
+          <h2
+            className="text-3xl uppercase leading-tight tracking-[0.035em] text-[#2d241d] sm:text-4xl md:text-5xl"
+            style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+          >
+            Find Us Across <span className="text-[#f25050]">Kerala &amp; Dubai</span>
           </h2>
-          <p className="mt-4 text-[#f5ecd9]/70 text-base font-light">
+          <p className="mt-4 text-[#6b5b4b] text-base font-light">
             {"Explore our locations in Calicut, Kochi, Kannur, and Dubai."}
           </p>
         </div>
@@ -47,7 +51,7 @@ export default function Branches() {
           {BRANCHES_DATA.map((branch, idx) => (
             <div
               key={branch.id}
-              className={`group relative aspect-[4/5] overflow-hidden rounded-2xl border border-[#242424] bg-[#0d0d0d] transition-all duration-700 hover:border-[#ffffff]/60 hover:shadow-2xl hover:shadow-black/70 ${
+              className={`group relative aspect-[4/5] overflow-hidden rounded-2xl border border-[#e8ddcc] bg-[#efe8dc] transition-all duration-700 hover:border-[#d4a24c]/80 hover:shadow-[0_18px_40px_rgba(45,36,29,0.2)] ${
                 isInView
                   ? "translate-y-0 opacity-100"
                   : "translate-y-8 opacity-0"
@@ -76,7 +80,7 @@ export default function Branches() {
             href="https://www.google.com/maps/search/?api=1&query=MRA+Bakery+Restaurant"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-[#e8c46a]/50 bg-[#0d0d0d] px-6 py-3 text-sm font-medium text-[#f5ecd9] transition-colors hover:border-[#e8c46a] hover:text-[#e8c46a]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#e8ddcc] bg-white px-6 py-3 text-sm font-medium text-[#5f5143] shadow-sm transition-all hover:border-[#d4a24c] hover:bg-[#fff7e6] hover:text-[#8a642c]"
           >
             <span>See More Locations</span>
             <ArrowRight className="h-4 w-4" />

@@ -5,19 +5,60 @@ import Image from "next/image";
 import { NAV_LINKS } from "@/lib/content";
 import { useApp } from "@/context/AppContext";
 import { useSmoothScroll } from "@/context/SmoothScrollContext";
-import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
+import {
+  Home as HomeIcon,
+  Info,
+  MapPin,
+  Menu as MenuIcon,
+  Phone,
+  ShoppingBag,
+  Utensils,
+  X,
+} from "lucide-react";
 import CartDrawer from "@/components/CartDrawer";
+
+const NAV_LINK_ICONS = {
+  "hero-track": HomeIcon,
+  story: Info,
+  menu: Utensils,
+  branches: MapPin,
+  contact: Phone,
+};
 
 export default function Navbar() {
   const { t, cartCount, openCart, headerCounterBump } = useApp();
   const { scrollTo } = useSmoothScroll();
   const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeLinkId, setActiveLinkId] = useState("hero-track");
 
   useEffect(() => {
     const handleScroll = () => {
       const threshold = window.innerHeight * 0.85;
       setIsScrolledPastHero(window.scrollY > threshold);
+
+      const activationLine = Math.max(100, window.innerHeight * 0.3);
+      let currentLinkId = NAV_LINKS[0]?.id ?? "hero-track";
+
+      for (const link of NAV_LINKS) {
+        const sectionId = link.id === "hero-track" ? "hero" : link.id;
+        const section = document.getElementById(sectionId);
+
+        if (section && section.getBoundingClientRect().top <= activationLine) {
+          currentLinkId = link.id;
+        } else if (section) {
+          break;
+        }
+      }
+
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2
+      ) {
+        currentLinkId = NAV_LINKS[NAV_LINKS.length - 1]?.id ?? currentLinkId;
+      }
+
+      setActiveLinkId(currentLinkId);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -39,8 +80,8 @@ export default function Navbar() {
       <header
         className={`fixed top-0 inset-x-0 z-40 transition-all duration-500 ${
           isScrolledPastHero
-            ? "bg-[#000000]/92 backdrop-blur-xl border-b border-[#242424]/80 py-2.5 sm:py-3 shadow-2xl shadow-black/80"
-            : "bg-gradient-to-b from-black/95 via-black/50 to-transparent py-4 sm:py-6"
+            ? "bg-[#120f0d]/95 backdrop-blur-2xl py-2.5 sm:py-3 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+            : "bg-gradient-to-b from-[#100d0b]/95 via-[#100d0b]/55 to-transparent py-4 sm:py-6"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -104,16 +145,26 @@ export default function Navbar() {
             aria-label="Main Navigation"
             className="hidden md:flex items-center gap-6 lg:gap-8"
           >
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.id}
-                onClick={() => scrollToSection(link.id)}
-                className="text-[11px] uppercase tracking-[0.22em] text-[#f5ecd9]/80 hover:text-[#ef4444] transition-colors font-medium relative py-1 group focus:outline-none focus:text-[#ef4444]"
-              >
-                {t(link.label)}
-                <span className="absolute bottom-0 inset-x-0 h-px bg-[#ef4444] scale-x-0 group-hover:scale-x-100 transition-transform origin-center duration-300" />
-              </button>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const Icon = NAV_LINK_ICONS[link.id];
+              const isActive = activeLinkId === link.id;
+
+              return (
+                <button
+                  key={link.id}
+                  aria-current={isActive ? "location" : undefined}
+                  onClick={() => scrollToSection(link.id)}
+                  className={`relative inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] transition-colors focus:outline-none focus:text-white ${
+                    isActive
+                      ? "border-[#f25050]/50 bg-[#5b2420]/75 text-[#fff8ed] shadow-[0_0_18px_rgba(242,80,80,0.12)]"
+                      : "text-[#eadcc8]/80 hover:border-[#d4a24c]/20 hover:bg-white/[0.03] hover:text-[#d4a24c]"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t(link.label)}</span>
+                </button>
+              );
+            })}
           </nav>
 
           {/* Actions */}
@@ -175,7 +226,7 @@ export default function Navbar() {
 
         {/* Drawer Panel */}
         <div
-          className={`absolute top-0 bottom-0 right-0 w-full max-w-xs bg-[#0d0d0d] border-s border-[#242424] p-6 flex flex-col justify-start transition-transform duration-300 ease-out ${
+          className={`absolute top-0 bottom-0 right-0 w-full max-w-xs bg-[#15120f] border-s border-white/10 p-6 flex flex-col justify-start transition-transform duration-300 ease-out ${
             mobileMenuOpen
               ? "translate-x-0"
               : "translate-x-full"
@@ -183,7 +234,7 @@ export default function Navbar() {
         >
           {/* Drawer Header */}
           <div>
-            <div className="flex items-center justify-between pb-6 border-b border-neutral-800">
+            <div className="flex items-center justify-between pb-6 border-b border-white/10">
               <div className="relative h-11 w-32">
                 <Image
                   src="/logo/mra-red-white.webp"
@@ -194,7 +245,7 @@ export default function Navbar() {
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-1 text-neutral-400 hover:text-white"
+                className="p-1 text-[#d7c8b3] transition-colors hover:text-[#d4a24c]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -202,15 +253,26 @@ export default function Navbar() {
 
             {/* Nav list */}
             <div className="py-6 flex flex-col gap-4">
-              {NAV_LINKS.map((link) => (
-                <button
-                  key={link.id}
-                  onClick={() => scrollToSection(link.id)}
-                  className="text-start py-2 text-sm uppercase tracking-[0.18em] text-[#f5ecd9] hover:text-[#ffffff] transition-colors font-medium border-b border-neutral-900"
-                >
-                  {t(link.label)}
-                </button>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const Icon = NAV_LINK_ICONS[link.id];
+                const isActive = activeLinkId === link.id;
+
+                return (
+                  <button
+                    key={link.id}
+                    aria-current={isActive ? "location" : undefined}
+                    onClick={() => scrollToSection(link.id)}
+                    className={`flex w-full items-center gap-3 rounded-full border px-3 py-3 text-start text-sm font-medium uppercase tracking-[0.18em] transition-colors ${
+                      isActive
+                        ? "border-[#f25050]/50 bg-[#5b2420]/75 text-[#fff8ed] shadow-[0_0_18px_rgba(242,80,80,0.12)]"
+                        : "border-transparent border-b-white/10 text-[#eadcc8]/85 hover:border-b-white/25 hover:text-white"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {t(link.label)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

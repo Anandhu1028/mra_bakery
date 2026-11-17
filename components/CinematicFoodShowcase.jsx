@@ -40,6 +40,10 @@ const DISHES = ORDERED_IDS.map((id) =>
 
 const DISH_COUNT = DISHES.length; // 6
 const SEGMENT_VH = 250;           // Scroll distance per dish (vh)
+const STAGE_VH = 100;
+const TRANSITION_VH = 100;
+const SHOWCASE_SCROLL_VH = DISH_COUNT * SEGMENT_VH - STAGE_VH;
+const TOTAL_HEIGHT_VH = DISH_COUNT * SEGMENT_VH + TRANSITION_VH;
 const LERP_FACTOR = 0.22;         // Buttery-smooth scroll catch-up (zero lag)
 
 // Standard matching fade pacing:
@@ -65,6 +69,9 @@ export default function CinematicFoodShowcase() {
   // DOM Refs
   const wrapperRef = useRef(null);
   const stageRef = useRef(null);
+  const transitionTriggerRef = useRef(null);
+  const topCurtainRef = useRef(null);
+  const bottomCurtainRef = useRef(null);
   const canvasRef = useRef(null);
   const glowRef = useRef(null);
   const overlayRef = useRef(null);
@@ -471,7 +478,8 @@ export default function CinematicFoodShowcase() {
     const st = ScrollTrigger.create({
       trigger: wrapper,
       start: "top top",
-      end: "bottom bottom",
+      end: () =>
+        `+=${(SHOWCASE_SCROLL_VH / 100) * window.innerHeight}`,
       scrub: true, // Smooth scrub directly controlled by Lenis
       invalidateOnRefresh: true,
       onUpdate(self) {
@@ -480,17 +488,51 @@ export default function CinematicFoodShowcase() {
       },
     });
 
+    let curtainTimeline;
+    if (
+      transitionTriggerRef.current &&
+      topCurtainRef.current &&
+      bottomCurtainRef.current
+    ) {
+      gsap.set(topCurtainRef.current, { yPercent: -100, visibility: "visible" });
+      gsap.set(bottomCurtainRef.current, {
+        yPercent: 100,
+        visibility: "visible",
+      });
+      curtainTimeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: transitionTriggerRef.current,
+          start: "top top",
+          end: "bottom top",
+          scrub: 1,
+          invalidateOnRefresh: true,
+        },
+      });
+      curtainTimeline
+        .to(
+          topCurtainRef.current,
+          { yPercent: 0, duration: 0.8, ease: "none" },
+          0
+        )
+        .to(
+          bottomCurtainRef.current,
+          { yPercent: 0, duration: 0.8, ease: "none" },
+          0
+        )
+        .to(stageRef.current, { opacity: 0, duration: 0.2, ease: "none" }, 0.8);
+    }
+
     ScrollTrigger.refresh();
 
     return () => {
       st.kill();
+      curtainTimeline?.scrollTrigger?.kill();
+      curtainTimeline?.kill();
       stopLoop();
     };
   }, [applyState, prefersReducedMotion, startRenderLoop, stopLoop]);
 
-  const totalHeight = prefersReducedMotion
-    ? "100svh"
-    : `${DISH_COUNT * SEGMENT_VH}vh`;
+  const totalHeight = prefersReducedMotion ? "100svh" : `${TOTAL_HEIGHT_VH}vh`;
 
   return (
     <section
@@ -500,10 +542,22 @@ export default function CinematicFoodShowcase() {
       className="relative w-full bg-[#050505] text-[#f7f0df] select-none"
       style={{ height: totalHeight }}
     >
+      {!prefersReducedMotion && (
+        <div
+          ref={transitionTriggerRef}
+          aria-hidden="true"
+          className="absolute inset-x-0 pointer-events-none"
+          style={{
+            top: `${SHOWCASE_SCROLL_VH}vh`,
+            height: `${TRANSITION_VH}vh`,
+          }}
+        />
+      )}
+
       {/* ── Sticky Fullscreen Stage (100vh) ── */}
       <div
         ref={stageRef}
-        className="sticky top-0 flex h-screen w-full items-center justify-center overflow-hidden bg-[#050505]"
+        className="sticky top-0 z-20 flex h-screen w-full items-center justify-center overflow-hidden bg-[#050505]"
         style={{ transform: "translate3d(0, 0, 0)" }}
       >
         {/* Single Hardware-Accelerated Canvas */}
@@ -568,6 +622,30 @@ export default function CinematicFoodShowcase() {
             </h3>
           </div>
         </div>
+
+        {!prefersReducedMotion && (
+          <>
+            <div
+              ref={topCurtainRef}
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 z-40 h-1/2 bg-[#fbf6ed] pointer-events-none"
+              style={{
+                height: "calc(50% + 1px)",
+                visibility: "hidden",
+                willChange: "transform",
+              }}
+            />
+            <div
+              ref={bottomCurtainRef}
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 z-40 h-1/2 bg-[#fbf6ed] pointer-events-none"
+              style={{
+                visibility: "hidden",
+                willChange: "transform",
+              }}
+            />
+          </>
+        )}
       </div>
     </section>
   );

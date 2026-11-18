@@ -220,6 +220,7 @@ export default function Hero1Sequence() {
         1,
         Math.min(FRAME_COUNT, Math.round(1 + next * (FRAME_COUNT - 1)))
       );
+
       if (frame !== frameRef.current) {
         directionRef.current = frame > frameRef.current ? 1 : -1;
         frameRef.current = frame;
@@ -380,6 +381,32 @@ export default function Hero1Sequence() {
               "linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.82) 10%, rgba(0, 0, 0, 0.56) 22%, rgba(0, 0, 0, 0.3) 36%, rgba(0, 0, 0, 0.12) 48%, transparent 58%), radial-gradient(ellipse 82% 86% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.48) 100%)",
           }}
         />
+        <h1
+          className={`hero1-sequence-heading pointer-events-none absolute left-6 top-1/2 z-30 -translate-y-1/2 sm:left-12 lg:left-20 ${
+            isLoaded ? "is-ready" : ""
+          }`}
+        >
+          <span className="hero1-sequence-line" data-copy-line="1">
+            <span className="hero1-sequence-row">Where Flavour</span>
+            <span className="hero1-sequence-row">Meets</span>
+            <span className="hero1-sequence-row hero1-sequence-highlight">
+              Elegance
+            </span>
+          </span>
+          <span className="hero1-sequence-line" data-copy-line="2">
+            <span className="hero1-sequence-row">A Taste Worth</span>
+            <span className="hero1-sequence-row hero1-sequence-highlight">
+              Remembering
+            </span>
+          </span>
+          <span className="hero1-sequence-line" data-copy-line="3">
+            <span className="hero1-sequence-row">Crafted to</span>
+            <span className="hero1-sequence-row">Delight Every</span>
+            <span className="hero1-sequence-row hero1-sequence-highlight">
+              Sense
+            </span>
+          </span>
+        </h1>
       </div>
     </section>
   );

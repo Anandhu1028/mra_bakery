@@ -4,14 +4,7 @@
 // CinematicFoodShowcase — 100% Scroll-Driven Signature Food Showcase
 //
 // Order:
-//   1. Double Smash Burger (burger)
-//   2. Vegetable Soup (veg-soup)
-//   3. Chicken Dum Biriyani (biryani)
-//   4. Tandoori (tandoori)
-//   5. Fried Rice (fried-rice)
-//   6. Plum Cake (plum-cake)
-//   7. Vancho Cake (vancho)
-//   8. Strawberry Cake (strawberry)
+//   1. Plum Cake (plum-cake)
 //
 // Smoothness fixes in this version:
 //   - Frame window is much larger and direction-aware (loads ahead of the
@@ -33,14 +26,7 @@ import { usePrefersReducedMotion } from "@/context/SmoothScrollContext";
 
 // ── Configuration ────────────────────────────────────────────────────────────
 const ORDERED_IDS = [
-  "burger",
-  "veg-soup",
-  "biryani",
-  "tandoori",
-  "fried-rice",
   "plum-cake",
-  "vancho",
-  "strawberry",
 ];
 
 const DISHES = ORDERED_IDS.map((id) =>
@@ -49,7 +35,6 @@ const DISHES = ORDERED_IDS.map((id) =>
 
 const DISH_COUNT = DISHES.length;
 const SEGMENT_VH = 100;
-const BURGER_DURATION_MULTIPLIER = 2;
 
 // Frame streaming
 const FRAME_AHEAD = 30; // frames to load in the scroll direction
@@ -60,11 +45,10 @@ const MAX_CONCURRENT_FRAME_LOADS = 6;
 // Rendering
 const MAX_DPR = 1.5; // big canvas = slow; 1.5 looks sharp enough
 const DAMPING = 10; // higher = snappier, lower = silkier (try 8 – 14)
+const EDGE_SAMPLE_HEIGHT = 12;
 
-const DISH_DURATION_UNITS = DISHES.map(
-  (dish) =>
-    Math.max(1, dish.frames.length / 120) *
-    (dish.id === "burger" ? BURGER_DURATION_MULTIPLIER : 1)
+const DISH_DURATION_UNITS = DISHES.map((dish) =>
+  Math.max(1, dish.frames.length / 120)
 );
 const TOTAL_DISH_UNITS = DISH_DURATION_UNITS.reduce(
   (total, duration) => total + duration,
@@ -79,8 +63,7 @@ const TOTAL_HEIGHT_VH = SHOWCASE_SCROLL_VH + TRANSITION_VH + STAGE_VH;
 // 0.00 – 0.02: Pure black hold
 // 0.02 – 0.15: Smoothstep fade in
 // 0.15 – 0.85: Interactive frame scrub
-// 0.85 – 0.98: Smoothstep fade out
-// 0.98 – 1.00: Pure black hold
+// 0.85 – 1.00: Fade out, except the final dish which holds its last frame
 const FADE_IN_START = 0.02;
 const FADE_IN_END = 0.15;
 const FADE_OUT_START = 0.85;
@@ -89,6 +72,79 @@ const FADE_OUT_END = 0.98;
 function smoothstep(min, max, value) {
   const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
   return x * x * (3 - 2 * x);
+}
+
+function parseGlowColor(glow) {
+  const channels = glow.match(/\d+(?:\.\d+)?/g);
+  return channels?.length >= 3
+    ? channels.slice(0, 3).map(Number)
+    : [48, 34, 26];
+}
+
+function sampleEdgeColors(ctx, bitmap, fallbackColor) {
+  const stripWidth = Math.max(1, Math.round(bitmap.width * 0.06));
+  ctx.clearRect(0, 0, 2, EDGE_SAMPLE_HEIGHT);
+  ctx.drawImage(
+    bitmap,
+    0,
+    0,
+    stripWidth,
+    bitmap.height,
+    0,
+    0,
+    1,
+    EDGE_SAMPLE_HEIGHT
+  );
+  ctx.drawImage(
+    bitmap,
+    bitmap.width - stripWidth,
+    0,
+    stripWidth,
+    bitmap.height,
+    1,
+    0,
+    1,
+    EDGE_SAMPLE_HEIGHT
+  );
+
+  const pixels = ctx.getImageData(0, 0, 2, EDGE_SAMPLE_HEIGHT).data;
+  const averageColumn = (column) => {
+    const color = [0, 0, 0];
+    let count = 0;
+
+    for (let y = 0; y < EDGE_SAMPLE_HEIGHT; y += 1) {
+      const offset = (y * 2 + column) * 4;
+      const alpha = pixels[offset + 3] / 255;
+      const brightness =
+        (pixels[offset] + pixels[offset + 1] + pixels[offset + 2]) / 3;
+      if (alpha < 0.1 || brightness < 8) continue;
+
+      color[0] += pixels[offset] * alpha;
+      color[1] += pixels[offset + 1] * alpha;
+      color[2] += pixels[offset + 2] * alpha;
+      count += alpha;
+    }
+
+    if (count === 0) return fallbackColor;
+
+    const sampledColor = color.map((channel) => channel / count);
+    const sampleWeight =
+      sampledColor.reduce((sum, channel) => sum + channel, 0) / 3 < 30
+        ? 0.45
+        : 0.82;
+    return sampledColor.map(
+      (channel, index) =>
+        channel * sampleWeight + fallbackColor[index] * (1 - sampleWeight)
+    );
+  };
+
+  return [averageColumn(0), averageColumn(1)];
+}
+
+function darkenColor(color, strength) {
+  return `rgb(${color
+    .map((channel) => Math.round(5 + (channel - 5) * strength))
+    .join(",")})`;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -103,6 +159,7 @@ export default function CinematicFoodShowcase() {
   const bottomCurtainRef = useRef(null);
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
+  const edgeSampleContextRef = useRef(null);
   const glowRef = useRef(null);
   const overlayRef = useRef(null);
   const captionRef = useRef(null);
@@ -131,7 +188,6 @@ export default function CinematicFoodShowcase() {
   const isLoopRunningRef = useRef(false);
   const isVisibleRef = useRef(false);
   const resizeTimeoutRef = useRef(null);
-  const headerHeightRef = useRef(0);
   const pixelRatioRef = useRef(1);
 
   // ── Frame streaming: priority list, nearest-first, direction-aware ─────────
@@ -225,7 +281,11 @@ export default function CinematicFoodShowcase() {
     let captionOpacity = 1;
     let frameIndex = 0;
 
-    if (s <= FADE_IN_START) {
+    if (dishIdx === DISH_COUNT - 1 && s >= FADE_OUT_START) {
+      overlayOpacity = 0;
+      captionOpacity = 1;
+      frameIndex = totalFrames - 1;
+    } else if (s <= FADE_IN_START) {
       overlayOpacity = 1;
       captionOpacity = 0;
       frameIndex = 0;
@@ -305,18 +365,14 @@ export default function CinematicFoodShowcase() {
     const ch = canvas.height;
     const sw = bmp.width;
     const sh = bmp.height;
-    const topInset = Math.min(
-      ch,
-      Math.round(headerHeightRef.current * pixelRatioRef.current)
-    );
-    const availableHeight = ch - topInset;
+    const availableHeight = ch;
     if (availableHeight <= 0) return;
 
     const scale = Math.min(cw / sw, availableHeight / sh);
     const dw = sw * scale;
     const dh = sh * scale;
     const dx = Math.round((cw - dw) / 2);
-    const dy = topInset + Math.round((availableHeight - dh) / 2);
+    const dy = Math.round((availableHeight - dh) / 2);
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "medium";
@@ -326,7 +382,49 @@ export default function CinematicFoodShowcase() {
       ctx.fillRect(0, 0, cw, ch);
     }
 
+    if (dx > 0) {
+      if (!edgeSampleContextRef.current) {
+        const sampleCanvas = document.createElement("canvas");
+        sampleCanvas.width = 2;
+        sampleCanvas.height = EDGE_SAMPLE_HEIGHT;
+        edgeSampleContextRef.current = sampleCanvas.getContext("2d", {
+          willReadFrequently: true,
+        });
+      }
+
+      const fallbackColor = parseGlowColor(DISHES[dishIdx].glow);
+      const [leftColor, rightColor] = edgeSampleContextRef.current
+        ? sampleEdgeColors(edgeSampleContextRef.current, bmp, fallbackColor)
+        : [fallbackColor, fallbackColor];
+      const sideGradient = (startX, endX, color) => {
+        const gradient = ctx.createLinearGradient(startX, 0, endX, 0);
+        gradient.addColorStop(0, "#050505");
+        gradient.addColorStop(0.55, darkenColor(color, 0.12));
+        gradient.addColorStop(0.86, darkenColor(color, 0.24));
+        gradient.addColorStop(1, darkenColor(color, 0.34));
+        return gradient;
+      };
+
+      const leftShade = sideGradient(0, dx, leftColor);
+      ctx.fillStyle = leftShade;
+      ctx.fillRect(0, 0, dx, ch);
+
+      const rightShade = sideGradient(cw, cw - dx, rightColor);
+      ctx.fillStyle = rightShade;
+      ctx.fillRect(cw - dx, 0, dx, ch);
+
+      const edgeGlow = leftColor.map((channel, index) =>
+        Math.round((channel + rightColor[index]) / 2)
+      );
+      ctx.save();
+      ctx.shadowColor = `rgba(${edgeGlow.join(",")}, 0.08)`;
+      ctx.shadowBlur = Math.round(8 * pixelRatioRef.current);
+    } else {
+      ctx.save();
+    }
+    ctx.filter = "saturate(0.92) contrast(0.93) brightness(0.98)";
     ctx.drawImage(bmp, dx, dy, dw, dh);
+    ctx.restore();
   }, []);
 
   const requestFrames = useCallback(
@@ -372,7 +470,6 @@ export default function CinematicFoodShowcase() {
         captionRef.current.style.opacity = captionStr;
       }
 
-      // Swap dish info while the screen is black
       if (dishIdx !== activeDishIndexRef.current || forceRedraw) {
         activeDishIndexRef.current = dishIdx;
         const currentDish = DISHES[dishIdx];
@@ -538,10 +635,8 @@ export default function CinematicFoodShowcase() {
     const canvas = canvasRef.current;
     if (!stage || !canvas) return undefined;
 
-    const header = document.querySelector("header");
     const resize = (width, height) => {
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-      headerHeightRef.current = header?.getBoundingClientRect().height ?? 0;
       pixelRatioRef.current = dpr;
       const cw = Math.max(1, Math.round(width * dpr));
       const ch = Math.max(1, Math.round(height * dpr));
@@ -570,7 +665,6 @@ export default function CinematicFoodShowcase() {
 
     const observer = new ResizeObserver(scheduleResize);
     observer.observe(stage);
-    if (header) observer.observe(header);
     window.addEventListener("resize", scheduleResize, { passive: true });
 
     return () => {
@@ -762,20 +856,36 @@ export default function CinematicFoodShowcase() {
             <div
               ref={topCurtainRef}
               aria-hidden="true"
-              className="absolute inset-x-0 top-0 z-40 h-1/2 bg-[#fbf6ed] pointer-events-none"
+              className="absolute inset-x-0 top-0 z-40 h-1/2 pointer-events-none"
               style={{
                 height: "calc(50% + 1px)",
                 visibility: "hidden",
                 willChange: "transform",
+                background:
+                  "linear-gradient(to bottom, rgba(2, 2, 2, 0.96) 0%, rgba(6, 6, 6, 0.92) 38%, rgba(9, 9, 9, 0.86) 72%, rgba(11, 11, 11, 0.78) 100%)",
+                backdropFilter: "blur(2px)",
+                WebkitBackdropFilter: "blur(2px)",
+                maskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 62%, rgba(0, 0, 0, 0.48) 100%)",
+                WebkitMaskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 62%, rgba(0, 0, 0, 0.48) 100%)",
               }}
             />
             <div
               ref={bottomCurtainRef}
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 z-40 h-1/2 bg-[#fbf6ed] pointer-events-none"
+              className="absolute inset-x-0 bottom-0 z-40 h-1/2 pointer-events-none"
               style={{
                 visibility: "hidden",
                 willChange: "transform",
+                background:
+                  "linear-gradient(to top, rgba(2, 2, 2, 0.96) 0%, rgba(6, 6, 6, 0.92) 38%, rgba(9, 9, 9, 0.86) 72%, rgba(11, 11, 11, 0.78) 100%)",
+                backdropFilter: "blur(2px)",
+                WebkitBackdropFilter: "blur(2px)",
+                maskImage:
+                  "linear-gradient(to top, #000 0%, #000 62%, rgba(0, 0, 0, 0.48) 100%)",
+                WebkitMaskImage:
+                  "linear-gradient(to top, #000 0%, #000 62%, rgba(0, 0, 0, 0.48) 100%)",
               }}
             />
           </>

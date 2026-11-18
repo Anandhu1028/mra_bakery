@@ -5,11 +5,11 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { usePrefersReducedMotion } from "@/context/SmoothScrollContext";
 
-const SOURCE_FRAME_COUNT = 197;
+const SOURCE_FRAME_COUNT = 240;
 const SOURCE_FRAME_NUMBERS = Array.from(
   { length: SOURCE_FRAME_COUNT },
   (_, index) => index + 1
-).filter((frameNumber) => frameNumber !== 106 && frameNumber !== 109);
+);
 const FRAME_COUNT = SOURCE_FRAME_NUMBERS.length;
 const FRAME_CACHE_RADIUS = 6;
 const MAX_CONCURRENT_LOADS = 4;
@@ -18,7 +18,7 @@ const BACKGROUND_COLOR = "#000000";
 
 function getFrameUrl(index) {
   const sourceFrame = SOURCE_FRAME_NUMBERS[index - 1];
-  return `/hero1/frame_${String(sourceFrame).padStart(3, "0")}.png`;
+  return `/hero/frame_${String(sourceFrame).padStart(3, "0")}.png`;
 }
 
 function loadImage(blob) {
@@ -300,7 +300,7 @@ export default function Hero1Sequence() {
 
     const resizeCanvas = () => {
       const rect = sticky.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const width = Math.round(rect.width * dpr);
       const height = Math.round(rect.height * dpr);
       if (canvas.width === width && canvas.height === height) return;
@@ -416,7 +416,7 @@ export default function Hero1Sequence() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.82) 6%, rgba(0, 0, 0, 0.48) 18%, transparent 34%), radial-gradient(ellipse 82% 86% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.48) 100%)",
+              "linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.82) 10%, rgba(0, 0, 0, 0.56) 22%, rgba(0, 0, 0, 0.3) 36%, rgba(0, 0, 0, 0.12) 48%, transparent 58%), radial-gradient(ellipse 82% 86% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.48) 100%)",
           }}
         />
       </div>

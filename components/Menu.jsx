@@ -94,7 +94,7 @@ export default function Menu() {
     <section
       ref={sectionRef}
       id="menu"
-      className="relative w-full overflow-hidden bg-white py-24 text-[#2d241d] sm:py-28 md:py-32"
+      className="relative w-full scroll-mt-16 overflow-hidden bg-white py-14 text-[#2d241d] sm:scroll-mt-20 sm:py-16 md:py-20 lg:scroll-mt-24 xl:py-24"
     >
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -106,14 +106,14 @@ export default function Menu() {
         <CookingPot className="absolute -right-5 top-40 h-20 w-20 rotate-12 text-[#caa461]/10 sm:right-6 sm:h-28 sm:w-28" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-3 sm:px-5 lg:px-8">
         <header
-          className={`mx-auto mb-10 max-w-3xl text-center transition-all duration-700 sm:mb-12 ${
+          className={`mx-auto mb-8 max-w-3xl text-center transition-all duration-700 sm:mb-10 ${
             isInView ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
           <h2
-            className="text-3xl uppercase leading-tight tracking-[0.035em] text-[#2d241d] sm:text-4xl md:text-5xl"
+            className="text-balance text-3xl uppercase leading-tight tracking-[0.035em] text-[#2d241d] sm:text-4xl md:text-5xl"
             style={{ fontFamily: "'Bebas Neue', sans-serif" }}
           >
             From Malabar to the <span className="text-[#f25050]">Middle East</span>
@@ -126,11 +126,11 @@ export default function Menu() {
 
         <nav
           aria-label="Filter menu by category"
-          className={`mb-10 overflow-x-auto pb-2 transition-all duration-700 sm:mb-12 ${
+          className={`mb-8 transition-all duration-700 sm:mb-10 ${
             isInView ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
           }`}
         >
-          <div className="mx-auto flex w-max items-center gap-2 sm:gap-2.5">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-2">
             {MENU_TABS.map(({ id, name, Icon }) => {
               const isActive = activeCategory === id;
 
@@ -140,7 +140,7 @@ export default function Menu() {
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => selectCategory(id)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-[10px] font-semibold tracking-wide transition-all duration-200 sm:px-4 sm:text-[11px] ${
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold tracking-wide transition-all duration-200 sm:px-4 sm:py-2.5 sm:text-[11px] ${
                     isActive
                       ? "border-[#f25050] bg-[#f25050] text-white shadow-[0_6px_18px_rgba(242,80,80,0.2)]"
                       : "border-[#e8dfd1] bg-white/80 text-[#716453] hover:border-[#caa461]/70 hover:bg-[#fffaf0] hover:text-[#2d241d]"
@@ -156,7 +156,7 @@ export default function Menu() {
 
         <div
           id="menu-items-grid"
-          className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4"
         >
           {visibleItems.map((item, index) => {
             const image = MENU_IMAGES[item.id];
@@ -169,24 +169,24 @@ export default function Menu() {
             return (
               <article
                 key={item.id}
-                className={`group flex min-h-[184px] overflow-hidden rounded-2xl border border-[#eee4d5] bg-white shadow-[0_8px_24px_rgba(61,47,30,0.055)] transition-all duration-700 hover:-translate-y-1 hover:border-[#d8bc8a] hover:shadow-[0_16px_34px_rgba(61,47,30,0.12)] ${
+                className={`group flex min-w-0 min-h-[156px] overflow-hidden rounded-2xl border border-[#eee4d5] bg-white shadow-[0_8px_24px_rgba(61,47,30,0.055)] transition-all duration-700 hover:-translate-y-1 hover:border-[#d8bc8a] hover:shadow-[0_16px_34px_rgba(61,47,30,0.12)] sm:min-h-[170px] lg:min-h-[184px] ${
                   isInView
                     ? "translate-y-0 opacity-100"
                     : "translate-y-6 opacity-0"
                 }`}
                 style={{ transitionDelay: `${Math.min(index * 55, 330)}ms` }}
               >
-                <div className="relative min-h-[184px] w-[40%] shrink-0 overflow-hidden bg-[#f3eadc]">
+                <div className="relative min-h-[156px] w-[38%] shrink-0 overflow-hidden bg-[#f3eadc] sm:min-h-[170px] sm:w-[40%] lg:min-h-[184px]">
                   {image ? (
                     <Image
                       src={image}
                       alt={t(item.name)}
                       fill
-                      sizes="(max-width: 640px) 40vw, (max-width: 1280px) 20vw, 14vw"
+                      sizes="(max-width: 639px) 38vw, (max-width: 1023px) 20vw, (max-width: 1535px) 12vw, 9vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full min-h-[184px] items-center justify-center bg-[radial-gradient(circle_at_30%_25%,#fffaf0,#eee0ca)]">
+                    <div className="flex h-full min-h-[156px] items-center justify-center bg-[radial-gradient(circle_at_30%_25%,#fffaf0,#eee0ca)] sm:min-h-[170px] lg:min-h-[184px]">
                       <FallbackIcon
                         className="h-12 w-12 text-[#b58b51]/60"
                         strokeWidth={1.1}
@@ -203,7 +203,7 @@ export default function Menu() {
                   )}
                 </div>
 
-                <div className="flex min-w-0 flex-1 flex-col items-start p-3.5 sm:p-4">
+                <div className="flex min-w-0 flex-1 flex-col items-start p-3 sm:p-3.5 lg:p-4">
                   <div className="mb-2 flex flex-wrap items-center gap-1.5">
                     {item.spicy && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#fff0ed] px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-[#b64238]">
@@ -238,7 +238,7 @@ export default function Menu() {
         </div>
 
         {activeCategory === "all" && (
-          <div className="mt-10 flex justify-center sm:mt-12">
+          <div className="mt-8 flex justify-center sm:mt-10">
             <button
               type="button"
               aria-controls="menu-items-grid"

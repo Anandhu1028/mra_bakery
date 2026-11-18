@@ -1,98 +1,61 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import {
-  ArrowRight,
   CakeSlice,
-  ChefHat,
-  Coffee,
   CookingPot,
-  Fish,
   Flame,
   Leaf,
-  Sparkles,
   Star,
   Utensils,
 } from "lucide-react";
-import { MENU_ITEMS } from "@/lib/content";
+import { MENU_CATEGORIES } from "@/lib/menu-data";
 import { useApp } from "@/context/AppContext";
 
 const MENU_TABS = [
   { id: "all", name: { en: "All Dishes" }, Icon: Utensils },
-  { id: "malabar", name: { en: "Malabar Specials" }, Icon: ChefHat },
-  { id: "arabian", name: { en: "Arabian Delights" }, Icon: Sparkles },
-  { id: "grills", name: { en: "Grills & BBQ" }, Icon: Flame },
-  { id: "seafood", name: { en: "Seafood" }, Icon: Fish },
-  { id: "vegetarian", name: { en: "Vegetarian" }, Icon: Leaf },
-  { id: "kerala-rice", name: { en: "Biryani" }, Icon: CookingPot },
-  { id: "desserts", name: { en: "Desserts" }, Icon: CakeSlice },
-  { id: "drinks", name: { en: "Beverages" }, Icon: Coffee },
+  ...MENU_CATEGORIES.map(({ id, name }) => ({
+    id,
+    name: { en: name },
+    Icon: Utensils,
+  })),
 ];
 
-const FEATURED_MENU_IDS = ["kr1", "kr2", "kr3", "g4", "g5", "w1"];
+const MENU_IMAGES = Object.fromEntries(
+  MENU_CATEGORIES.slice(0, 18).map(({ id }, index) => [
+    id,
+    `/menu/category-${String(index + 1).padStart(2, "0")}.jpg`,
+  ])
+);
 
-const MENU_IMAGES = {
-  kr1: "/food_products/chickenbiriyani.jpg",
-  kr2: "/food_products/1800e2d56a9c23e1ad9556be5e37f153.jpg",
-  kr3: "/food_products/biriyani.png",
-  g4: "/food_products/alfarm.jpeg",
-  g5: "/food_products/fishfry.jpg",
-  w1: "/food_products/shawarma (1).png",
-};
-
-function matchesCategory(item, category) {
-  switch (category) {
-    case "malabar":
-      return ["kerala-rice", "kerala-favorites", "bakery", "sides"].includes(
-        item.category
-      );
-    case "arabian":
-      return ["platters", "wraps"].includes(item.category);
-    case "seafood":
-      return ["kf3", "g5"].includes(item.id);
-    case "vegetarian":
-      return item.veg;
-    default:
-      return item.category === category;
-  }
-}
+const MENU_ITEMS = MENU_CATEGORIES.flatMap((category) =>
+  category.items.map((name, index) => ({
+    id: `${category.id}-${index + 1}`,
+    name: { en: name },
+    category: category.id,
+    desc: { en: category.name },
+    image: MENU_IMAGES[category.id],
+  }))
+);
 
 export default function Menu() {
   const { t } = useApp();
   const [activeCategory, setActiveCategory] = useState("all");
-  const [showFullMenu, setShowFullMenu] = useState(false);
-  const sectionRef = useRef(null);
-  const [isInView, setIsInView] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setIsInView(true);
-      },
-      { threshold: 0.1 }
-    );
-
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const filteredItems = MENU_ITEMS.filter((item) =>
-    activeCategory === "all" ? true : matchesCategory(item, activeCategory)
-  );
   const visibleItems =
-    activeCategory === "all" && !showFullMenu
-      ? filteredItems.filter((item) => FEATURED_MENU_IDS.includes(item.id))
-      : filteredItems;
+    activeCategory === "all"
+      ? MENU_ITEMS
+      : MENU_ITEMS.filter((item) => item.category === activeCategory);
+  const visibleTabs = showAllCategories ? MENU_TABS : MENU_TABS.slice(0, 11);
 
   const selectCategory = (category) => {
     setActiveCategory(category);
-    setShowFullMenu(false);
   };
 
   return (
     <section
-      ref={sectionRef}
       id="menu"
       className="relative w-full scroll-mt-16 overflow-hidden bg-white py-14 text-[#2d241d] sm:scroll-mt-20 sm:py-16 md:py-20 lg:scroll-mt-24 xl:py-24"
     >
@@ -108,9 +71,7 @@ export default function Menu() {
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-3 sm:px-5 lg:px-8">
         <header
-          className={`mx-auto mb-8 max-w-3xl text-center transition-all duration-700 sm:mb-10 ${
-            isInView ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
-          }`}
+          className="mx-auto mb-8 max-w-3xl text-center transition-all duration-700 sm:mb-10"
         >
           <h2
             className="text-balance text-3xl uppercase leading-tight tracking-[0.035em] text-[#2d241d] sm:text-4xl md:text-5xl"
@@ -126,12 +87,13 @@ export default function Menu() {
 
         <nav
           aria-label="Filter menu by category"
-          className={`mb-8 transition-all duration-700 sm:mb-10 ${
-            isInView ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-          }`}
+          className="mb-8 transition-all duration-700 sm:mb-10"
         >
-          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-2">
-            {MENU_TABS.map(({ id, name, Icon }) => {
+          <div
+            id="menu-category-tabs"
+            className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-2"
+          >
+            {visibleTabs.map(({ id, name, Icon }) => {
               const isActive = activeCategory === id;
 
               return (
@@ -152,29 +114,39 @@ export default function Menu() {
               );
             })}
           </div>
+          {!showAllCategories && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                aria-controls="menu-category-tabs"
+                aria-expanded={showAllCategories}
+                onClick={() => setShowAllCategories(true)}
+                className="rounded-full border border-[#f25050] px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c33e3e] transition-colors hover:bg-[#fff3f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f25050] focus-visible:ring-offset-2 sm:text-[11px]"
+              >
+                Load More Categories
+              </button>
+            </div>
+          )}
         </nav>
 
         <div
           id="menu-items-grid"
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4"
         >
-          {visibleItems.map((item, index) => {
-            const image = MENU_IMAGES[item.id];
+          {visibleItems.map((item) => {
+            const image = item.image;
             const FallbackIcon = item.veg
               ? Leaf
-              : item.category === "desserts"
+              : item.category.includes("dessert") ||
+                  item.category.includes("ice-cream") ||
+                  item.category === "falooda"
                 ? CakeSlice
                 : CookingPot;
 
             return (
               <article
                 key={item.id}
-                className={`group flex min-w-0 min-h-[156px] overflow-hidden rounded-2xl border border-[#eee4d5] bg-white shadow-[0_8px_24px_rgba(61,47,30,0.055)] transition-all duration-700 hover:-translate-y-1 hover:border-[#d8bc8a] hover:shadow-[0_16px_34px_rgba(61,47,30,0.12)] sm:min-h-[170px] lg:min-h-[184px] ${
-                  isInView
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-6 opacity-0"
-                }`}
-                style={{ transitionDelay: `${Math.min(index * 55, 330)}ms` }}
+                className="group flex min-w-0 min-h-[156px] overflow-hidden rounded-2xl border border-[#eee4d5] bg-white shadow-[0_8px_24px_rgba(61,47,30,0.055)] transition-all duration-700 hover:-translate-y-1 hover:border-[#d8bc8a] hover:shadow-[0_16px_34px_rgba(61,47,30,0.12)] sm:min-h-[170px] lg:min-h-[184px]"
               >
                 <div className="relative min-h-[156px] w-[38%] shrink-0 overflow-hidden bg-[#f3eadc] sm:min-h-[170px] sm:w-[40%] lg:min-h-[184px]">
                   {image ? (
@@ -204,26 +176,6 @@ export default function Menu() {
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col items-start p-3 sm:p-3.5 lg:p-4">
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    {item.spicy && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#fff0ed] px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-[#b64238]">
-                        <Flame className="h-2.5 w-2.5" aria-hidden="true" />
-                        Spiced
-                      </span>
-                    )}
-                    {item.veg && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#edf6ee] px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-[#34714a]">
-                        <Leaf className="h-2.5 w-2.5" aria-hidden="true" />
-                        Vegetarian
-                      </span>
-                    )}
-                    {!item.spicy && !item.veg && !item.isChefPick && (
-                      <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#a88a5e]">
-                        Made fresh
-                      </span>
-                    )}
-                  </div>
-
                   <h3 className="line-clamp-2 font-serif text-sm font-semibold leading-snug text-[#332a21] transition-colors group-hover:text-[#a83b32] sm:text-base">
                     {t(item.name)}
                   </h3>
@@ -236,26 +188,6 @@ export default function Menu() {
             );
           })}
         </div>
-
-        {activeCategory === "all" && (
-          <div className="mt-8 flex justify-center sm:mt-10">
-            <button
-              type="button"
-              aria-controls="menu-items-grid"
-              aria-expanded={showFullMenu}
-              onClick={() => setShowFullMenu((current) => !current)}
-              className="group inline-flex items-center gap-3 rounded-full border border-[#f25050] bg-[#f25050] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_rgba(242,80,80,0.2)] transition-all hover:-translate-y-0.5 hover:bg-[#df4444] hover:shadow-[0_14px_28px_rgba(242,80,80,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#caa461] focus-visible:ring-offset-2 sm:px-7 sm:text-[11px]"
-            >
-              {showFullMenu ? "Show Signature Picks" : "View Full Menu"}
-              <ArrowRight
-                className={`h-3.5 w-3.5 transition-transform ${
-                  showFullMenu ? "-rotate-90" : "group-hover:translate-x-1"
-                }`}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );

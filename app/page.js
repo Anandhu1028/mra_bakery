@@ -8,7 +8,7 @@ import CakeHeadline from "@/components/CakeHeadline";
 import CinematicFoodShowcase from "@/components/CinematicFoodShowcase";
 import Story from "@/components/Story";
 import CakeSequence from "@/components/CakeSequence";
-import CakeSequence2 from "@/components/CakeSequence2";
+import Hero1Sequence from "@/components/Hero1Sequence";
 import Dishes from "@/components/Dishes";
 import Menu from "@/components/Menu";
 import Branches from "@/components/Branches";
@@ -49,12 +49,8 @@ export default function Home() {
         }}
       /> */}
 
-      {/* 1st Section: Artisanal Cake Track 2 (caketrack2 frames) */}
-      <CakeSequence2
-        onProgressUpdate={(_, isDone) => {
-          if (isDone) setHeroReady(true);
-        }}
-      />
+      {/* Hero 1: Frame sequence */}
+      <Hero1Sequence />
 
       {/* Section 1: Our Story (About Section directly after Hero) */}
       <Story />

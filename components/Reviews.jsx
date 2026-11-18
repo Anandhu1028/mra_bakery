@@ -33,7 +33,10 @@ export default function Reviews() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 mb-16 text-center">
         
 
-        <h2 className="font-serif text-3xl sm:text-5xl font-normal text-[#f5ecd9] tracking-tight">
+        <h2
+          className="text-3xl uppercase leading-tight tracking-[0.035em] text-[#f5ecd9] sm:text-4xl md:text-5xl"
+          style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+        >
           {"Voices From Our Tables"}
         </h2>
         <p className="mt-4 text-[#f5ecd9]/70 text-base font-light max-w-2xl mx-auto">

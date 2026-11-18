@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { BRANCHES_DATA } from "@/lib/content";
 import { useApp } from "@/context/AppContext";
-import { ArrowRight, Building2, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export default function Branches() {
   const { t } = useApp();
@@ -13,7 +13,10 @@ export default function Branches() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setIsInView(true);
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
       },
       { threshold: 0.15 }
     );
@@ -31,7 +34,7 @@ export default function Branches() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <div
-          className={`text-center max-w-3xl mx-auto mb-14 transition-all duration-1000 ${
+          className={`text-center max-w-3xl mx-auto mb-14 transition-[opacity,transform] duration-500 ease-out ${
             isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
           }`}
         >
@@ -47,21 +50,21 @@ export default function Branches() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
           {BRANCHES_DATA.map((branch, idx) => (
             <div
               key={branch.id}
-              className={`group relative aspect-[4/5] overflow-hidden rounded-2xl border border-[#e8ddcc] bg-[#efe8dc] transition-all duration-700 hover:border-[#d4a24c]/80 hover:shadow-[0_18px_40px_rgba(45,36,29,0.2)] ${
+              className={`group relative aspect-[4/5] overflow-hidden rounded-2xl border border-[#e8ddcc] bg-[#efe8dc] transition-[opacity,transform,border-color] duration-300 ease-out hover:border-[#d4a24c]/80 sm:aspect-[5/4] motion-reduce:transition-none ${
                 isInView
                   ? "translate-y-0 opacity-100"
                   : "translate-y-8 opacity-0"
               }`}
-              style={{ transitionDelay: `${idx * 120}ms` }}
+              style={{ transitionDelay: `${idx * 50}ms` }}
             >
               <div
                 role="img"
                 aria-label="Restaurant interior"
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-400 ease-out group-hover:scale-105 motion-reduce:transition-none"
                 style={{ backgroundImage: `url("${branch.image}")` }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
@@ -71,20 +74,11 @@ export default function Branches() {
                   {t(branch.city)}
                 </h3>
               </div>
+              <div className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-black/30 text-white backdrop-blur-sm sm:bottom-6 sm:right-6">
+                <MapPin className="h-5 w-5" />
+              </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-10 flex justify-center">
-          <a
-            href="https://www.google.com/maps/search/?api=1&query=MRA+Bakery+Restaurant"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-[#e8ddcc] bg-white px-6 py-3 text-sm font-medium text-[#5f5143] shadow-sm transition-all hover:border-[#d4a24c] hover:bg-[#fff7e6] hover:text-[#8a642c]"
-          >
-            <span>See More Locations</span>
-            <ArrowRight className="h-4 w-4" />
-          </a>
         </div>
       </div>
     </section>

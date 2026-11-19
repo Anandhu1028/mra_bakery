@@ -162,9 +162,6 @@ export default function CinematicFoodShowcase() {
   const edgeSampleContextRef = useRef(null);
   const glowRef = useRef(null);
   const overlayRef = useRef(null);
-  const captionRef = useRef(null);
-  const captionTagRef = useRef(null);
-  const captionNameRef = useRef(null);
 
   // Frame cache: [dishIdx][frameIdx] = ImageBitmap | null
   const cacheRef = useRef(DISHES.map((d) => new Array(d.frames.length).fill(null)));
@@ -182,7 +179,6 @@ export default function CinematicFoodShowcase() {
   const activeDishIndexRef = useRef(-1);
   const lastDrawnKeyRef = useRef(-1);
   const lastOverlayRef = useRef("");
-  const lastCaptionRef = useRef("");
   const lastTickRef = useRef(0);
   const rafIdRef = useRef(null);
   const isLoopRunningRef = useRef(false);
@@ -455,8 +451,7 @@ export default function CinematicFoodShowcase() {
   // ── Apply state to DOM & Canvas ────────────────────────────────────────────
   const applyState = useCallback(
     (val, forceRedraw = false) => {
-      const { dishIdx, overlayOpacity, captionOpacity, frameIndex } =
-        computeState(val);
+      const { dishIdx, overlayOpacity, frameIndex } = computeState(val);
 
       const overlayStr = overlayOpacity.toFixed(3);
       if (overlayRef.current && overlayStr !== lastOverlayRef.current) {
@@ -464,22 +459,9 @@ export default function CinematicFoodShowcase() {
         overlayRef.current.style.opacity = overlayStr;
       }
 
-      const captionStr = captionOpacity.toFixed(3);
-      if (captionRef.current && captionStr !== lastCaptionRef.current) {
-        lastCaptionRef.current = captionStr;
-        captionRef.current.style.opacity = captionStr;
-      }
-
       if (dishIdx !== activeDishIndexRef.current || forceRedraw) {
         activeDishIndexRef.current = dishIdx;
         const currentDish = DISHES[dishIdx];
-
-        if (captionTagRef.current) {
-          captionTagRef.current.textContent = currentDish.tagline;
-        }
-        if (captionNameRef.current) {
-          captionNameRef.current.textContent = currentDish.title;
-        }
         if (glowRef.current) {
           glowRef.current.style.background = `radial-gradient(circle at 50% 38%, ${currentDish.glow} 0%, rgba(5,5,5,0.45) 36%, rgba(5,5,5,0.85) 100%)`;
         }
@@ -822,34 +804,6 @@ export default function CinematicFoodShowcase() {
             willChange: "opacity",
           }}
         />
-
-        {/* Dish title & tagline */}
-        <div
-          ref={captionRef}
-          className="absolute inset-x-0 bottom-0 z-30 flex justify-center pb-14 sm:pb-16 lg:pb-20 pointer-events-none"
-          style={{
-            opacity: 0,
-            willChange: "opacity",
-          }}
-        >
-          <div className="w-full max-w-5xl px-5 text-center sm:px-8 lg:px-12">
-            <p
-              ref={captionTagRef}
-              className="mb-3 text-[10px] font-medium uppercase tracking-[0.55em] text-[#f5ecd9]/70 select-none"
-            >
-              {DISHES[0].tagline}
-            </p>
-            <h3
-              ref={captionNameRef}
-              className="dish-caption select-none"
-              style={{
-                textShadow: "0 0 16px rgba(229, 169, 60, 0.3)",
-              }}
-            >
-              {DISHES[0].title}
-            </h3>
-          </div>
-        </div>
 
         {!prefersReducedMotion && (
           <>

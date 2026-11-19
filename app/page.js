@@ -1,7 +1,3 @@
-"use client";
-
-import React, { useCallback, useEffect, useState } from "react";
-import Preloader from "@/components/Preloader";
 import Navbar from "@/components/Navbar";
 import ScrollSequence from "@/components/ScrollSequence";
 import CakeHeadline from "@/components/CakeHeadline";
@@ -16,29 +12,8 @@ import Reviews from "@/components/Reviews";
 import Footer from "@/components/Footer";
 
 export default function Home() {
-  const [heroReady, setHeroReady] = useState(false);
-  const [preloaderFinished, setPreloaderFinished] = useState(false);
-  const handlePreloaderComplete = useCallback(
-    () => setPreloaderFinished(true),
-    []
-  );
-
-  useEffect(() => {
-    // Safety fallback so preloader finishes even on slow networks
-    const timer = setTimeout(() => setHeroReady(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <main className="relative min-h-screen bg-black text-[#f5ecd9] overflow-x-clip">
-      {/* Cinematic Brand Preloader */}
-      {!preloaderFinished && (
-        <Preloader
-          heroReady={heroReady}
-          onComplete={handlePreloaderComplete}
-        />
-      )}
-
       {/* Global Navigation */}
       <Navbar />
 

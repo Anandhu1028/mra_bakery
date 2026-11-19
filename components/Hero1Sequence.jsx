@@ -12,21 +12,17 @@ const FRAME_BEHIND = 12; // frames kept ready behind
 const KEEP_RADIUS = 50; // evict only beyond this (hysteresis, saves memory)
 const MAX_CONCURRENT_LOADS = 6;
 const TRACK_HEIGHT = "600vh";
-const BACKGROUND_COLOR = "#000000";
 const MAX_DPR = 1.5;
 const DAMPING = 9; // higher = snappier, lower = silkier (try 7 – 12)
 
 const textSections = [
- 
-  
   {
-    start: 51,
-    end: 101,
+    start: 1,
+    end: 50,
     align: "center",
-    variant: "default",
-    title: "A TASTE WORTH REMEMBERING",
-    titleLine: "A TASTE WORTH",
-    highlightLine: "REMEMBERING",
+    variant: "intro",
+    lines: ["WHERE FLAVOUR MEETS"],
+    highlight: "ELEGANCE",
   },
 ];
 
@@ -55,12 +51,9 @@ export default function Hero1Sequence() {
   const loopRunningRef = useRef(false);
   const drawRafRef = useRef(null);
   const isVisibleRef = useRef(false);
-  const headerHeightRef = useRef(0);
-  const pixelRatioRef = useRef(1);
   const abortRef = useRef(null);
   const generationRef = useRef(0);
   const requestFramesRef = useRef(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(1);
 
   const getNearestBitmap = useCallback((target) => {
@@ -85,30 +78,17 @@ export default function Hero1Sequence() {
 
     const sw = frame.bitmap.width;
     const sh = frame.bitmap.height;
-    const topInset = Math.min(
-      canvas.height,
-      Math.round(headerHeightRef.current * pixelRatioRef.current)
-    );
-    const availH = canvas.height - topInset;
-    if (availH <= 0) return;
-
-    const scale = Math.max(canvas.width / sw, availH / sh);
+    const scale = Math.max(canvas.width / sw, canvas.height / sh);
     const dw = Math.round(sw * scale);
     const dh = Math.round(sh * scale);
 
     ctx.drawImage(
       frame.bitmap,
       Math.round((canvas.width - dw) / 2),
-      topInset + Math.round((availH - dh) / 2),
+      Math.round((canvas.height - dh) / 2),
       dw,
       dh
     );
-
-    // Header strip black, to hide image overflow
-    if (topInset > 0) {
-      ctx.fillStyle = BACKGROUND_COLOR;
-      ctx.fillRect(0, 0, canvas.width, topInset);
-    }
 
     lastDrawnRef.current = frame.index;
   }, [getNearestBitmap]);
@@ -145,7 +125,6 @@ export default function Hero1Sequence() {
         bitmapsRef.current[index - 1] = bitmap;
 
         if (index === 1) {
-          setIsLoaded(true);
           lastDrawnRef.current = null;
           drawFrame();
         }
@@ -261,7 +240,6 @@ export default function Hero1Sequence() {
     const canvas = canvasRef.current;
     if (!track || !sticky || !canvas) return undefined;
 
-    const header = document.querySelector("header");
     generationRef.current++;
     abortRef.current = new AbortController();
     ctxRef.current = canvas.getContext("2d", { alpha: false });
@@ -271,11 +249,8 @@ export default function Hero1Sequence() {
     }
 
     const resizeCanvas = () => {
-      headerHeightRef.current =
-        header?.getBoundingClientRect().height ?? 0;
       const rect = sticky.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-      pixelRatioRef.current = dpr;
       const w = Math.round(rect.width * dpr);
       const h = Math.round(rect.height * dpr);
       if (canvas.width !== w || canvas.height !== h) {
@@ -298,15 +273,6 @@ export default function Hero1Sequence() {
 
     resizeCanvas();
     window.addEventListener("resize", onResize, { passive: true });
-
-    const headerObserver = header ? new ResizeObserver(() => {
-      const height = header.getBoundingClientRect().height;
-      if (height === headerHeightRef.current) return;
-      headerHeightRef.current = height;
-      lastDrawnRef.current = null;
-      scheduleDraw();
-    }) : null;
-    headerObserver?.observe(header);
 
     let scrollContext;
     gsap.registerPlugin(ScrollTrigger);
@@ -370,7 +336,6 @@ export default function Hero1Sequence() {
       scrollContext?.revert();
       visObserver.disconnect();
       preObserver.disconnect();
-      headerObserver?.disconnect();
       window.removeEventListener("resize", onResize);
       clearTimeout(resizeTimer);
       if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
@@ -401,17 +366,6 @@ export default function Hero1Sequence() {
           aria-hidden="true"
           className="absolute inset-0 block h-full w-full"
         />
-        {!isLoaded && (
-          <div className="absolute inset-0 bg-black" aria-hidden="true" />
-        )}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.82) 10%, rgba(0, 0, 0, 0.56) 22%, rgba(0, 0, 0, 0.3) 36%, rgba(0, 0, 0, 0.12) 48%, transparent 58%), radial-gradient(ellipse 82% 86% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.48) 100%)",
-          }}
-        />
         {(() => {
           const activeSection = textSections.find(
             (section) =>
@@ -437,7 +391,7 @@ export default function Hero1Sequence() {
                     ? { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
                     : { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
                 }
-                className={`pointer-events-none absolute inset-0 z-30 flex ${alignmentClasses} bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.55),transparent_70%)]`}
+                className={`pointer-events-none absolute inset-0 z-30 flex ${alignmentClasses}`}
               >
                 {activeSection.variant === "intro" ? (
                   <div className="w-full max-w-[92rem] px-5">

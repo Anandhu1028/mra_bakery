@@ -37,10 +37,10 @@ const DISH_COUNT = DISHES.length;
 const SEGMENT_VH = 200;
 
 // Frame streaming
-const FRAME_AHEAD = 30; // frames to load in the scroll direction
-const FRAME_BEHIND = 10; // frames to keep ready behind
-const FRAME_KEEP_RADIUS = 45; // only evict beyond this (hysteresis)
-const MAX_CONCURRENT_FRAME_LOADS = 6;
+const FRAME_AHEAD = 45; // frames to load in the scroll direction
+const FRAME_BEHIND = 20; // frames to keep ready behind
+const FRAME_KEEP_RADIUS = 999; // keep loaded frames in memory to avoid dropped frames & blur
+const MAX_CONCURRENT_FRAME_LOADS = 8;
 
 // Rendering
 const DAMPING = 10; // higher = snappier, lower = silkier (try 8 – 14)
@@ -86,7 +86,7 @@ export default function CinematicFoodShowcase() {
   const failedFramesRef = useRef(DISHES.map(() => new Set()));
   const frameLoaderRef = useRef(null);
   const activeLoadsRef = useRef(0);
-  const requestedDishRef = useRef(-1);
+  const requestedDishRef = useRef(DISH_COUNT > 0 ? 0 : -1);
   const targetFrameRef = useRef(0);
   const frameDirectionRef = useRef(1);
 
@@ -385,7 +385,15 @@ export default function CinematicFoodShowcase() {
 
         let bmp;
         if (typeof window !== "undefined" && "createImageBitmap" in window) {
-          bmp = await createImageBitmap(blob);
+          try {
+            bmp = await createImageBitmap(blob, {
+              resizeQuality: "high",
+              imageOrientation: "from-image",
+              colorSpaceConversion: "none",
+            });
+          } catch (_) {
+            bmp = await createImageBitmap(blob);
+          }
         } else {
           bmp = await new Promise((resolve, reject) => {
             const img = new window.Image();
@@ -401,15 +409,7 @@ export default function CinematicFoodShowcase() {
           return;
         }
 
-        // Drop frames that arrived after the playhead moved far away.
-        const inWindow =
-          dishIdx === requestedDishRef.current &&
-          Math.abs(frameIdx - targetFrameRef.current) <= FRAME_KEEP_RADIUS;
-        if (frameIdx !== 0 && !inWindow) {
-          bmp?.close?.();
-          return;
-        }
-
+        // Cache the decoded frame immediately without premature eviction
         cacheRef.current[dishIdx][frameIdx] = bmp;
         if (dishIdx === requestedDishRef.current) {
           drawFrame(dishIdx, targetFrameRef.current);
@@ -466,13 +466,22 @@ export default function CinematicFoodShowcase() {
     if (!stage || !canvas) return undefined;
 
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const cw = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      const ch = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      const stage = stageRef.current;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const displayWidth =
+        canvas.clientWidth || stage?.clientWidth || window.innerWidth;
+      const displayHeight =
+        canvas.clientHeight || stage?.clientHeight || window.innerHeight;
+      const cw = Math.max(1, Math.round(displayWidth * dpr));
+      const ch = Math.max(1, Math.round(displayHeight * dpr));
 
       if (canvas.width !== cw || canvas.height !== ch) {
         canvas.width = cw;
         canvas.height = ch;
+      }
+      if (ctxRef.current) {
+        ctxRef.current.imageSmoothingEnabled = true;
+        ctxRef.current.imageSmoothingQuality = "high";
       }
       lastDrawnKeyRef.current = -1;
       applyState(currentValRef.current, true);

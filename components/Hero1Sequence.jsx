@@ -17,18 +17,12 @@ const MAX_DPR = 1.5;
 const DAMPING = 9; // higher = snappier, lower = silkier (try 7 – 12)
 
 const textSections = [
-  {
-    start: 1,
-    end: 5,
-    align: "center",
-    variant: "intro",
-    lines: ["WHERE FLAVOUR MEETS"],
-    highlight: "ELEGANCE",
-  },
+ 
+  
   {
     start: 51,
     end: 101,
-    align: "left",
+    align: "center",
     variant: "default",
     title: "A TASTE WORTH REMEMBERING",
     titleLine: "A TASTE WORTH",
@@ -37,7 +31,7 @@ const textSections = [
   {
     start: 220,
     end: FRAME_COUNT,
-    align: "left",
+    align: "center",
     variant: "default",
     title: "CRAFTED TO DELIGHT EVERY SENSE",
     titleLine: "CRAFTED TO DELIGHT",

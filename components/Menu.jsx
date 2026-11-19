@@ -13,6 +13,8 @@ import {
 import { MENU_CATEGORIES } from "@/lib/menu-data";
 import { useApp } from "@/context/AppContext";
 
+const ITEMS_PER_PAGE = 10;
+
 const MENU_TABS = [
   { id: "all", name: { en: "All Dishes" }, Icon: Utensils },
   ...MENU_CATEGORIES.map(({ id, name }) => ({
@@ -43,15 +45,18 @@ export default function Menu() {
   const { t } = useApp();
   const [activeCategory, setActiveCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
-  const visibleItems =
+  const filteredItems =
     activeCategory === "all"
       ? MENU_ITEMS
       : MENU_ITEMS.filter((item) => item.category === activeCategory);
+  const visibleItems = filteredItems.slice(0, visibleCount);
   const visibleTabs = showAllCategories ? MENU_TABS : MENU_TABS.slice(0, 11);
 
   const selectCategory = (category) => {
     setActiveCategory(category);
+    setVisibleCount(ITEMS_PER_PAGE);
   };
 
   return (
@@ -188,6 +193,22 @@ export default function Menu() {
             );
           })}
         </div>
+        {visibleItems.length < filteredItems.length && (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              aria-controls="menu-items-grid"
+              onClick={() =>
+                setVisibleCount((count) =>
+                  Math.min(count + ITEMS_PER_PAGE, filteredItems.length)
+                )
+              }
+              className="rounded-full border border-[#f25050] px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c33e3e] transition-colors hover:bg-[#fff3f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f25050] focus-visible:ring-offset-2 sm:text-[11px]"
+            >
+              Load More
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

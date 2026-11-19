@@ -3,6 +3,9 @@
 import { useEffect, useRef } from "react";
 import { useSmoothScroll } from "@/context/SmoothScrollContext";
 
+// ─── Frame Manifest ───────────────────────────────────────────────────────────
+// Source: public/hero1-webp/ (q85 WebP, avg ~68 KB vs ~1.3 MB PNG = 95% smaller)
+// 195 valid frames out of 197 (106, 109 missing from source footage)
 const FIRST_FRAME_NUMBER = 1;
 const LAST_FRAME_NUMBER = 197;
 const MISSING_FRAME_NUMBERS = new Set([106, 109]);
@@ -11,39 +14,40 @@ const FRAME_NUMBERS = Array.from(
   (_, index) => FIRST_FRAME_NUMBER + index
 ).filter((frame) => !MISSING_FRAME_NUMBERS.has(frame));
 const FRAME_URLS = FRAME_NUMBERS.map(
-  (frame) => `/hero1/frame_${String(frame).padStart(3, "0")}.png`
+  (frame) => `/hero1-webp/frame_${String(frame).padStart(3, "0")}.webp`
 );
 const TOTAL_FRAMES = FRAME_URLS.length; // 195 frames
 
-// Scroll phases (screen stays pinned through all of them)
-// Phase A: Text fully visible & stable on pure black
-// Phase B: Text fades out smoothly to blackout
-// Phase C: Frame 001 smooth fade-in (reaches 65% visible at 0.15)
-// Phase D: At 65% visibility, scrolling smoothly advances frames 001-197
-// Phase E: Release sticky sequence after frame 197 to reveal next section
+// ─── Scroll Phase Map ──────────────────────────────────────────────────────────
+// Phase A [0.00–0.03]:  Hero text fully visible & stable on pure black
+// Phase B [0.03–0.08]:  Text fades out smoothly to blackout
+// Phase C [0.05–0.20]:  Frame 001 smooth fade-in (hits ~65% opacity at 0.15)
+// Phase D [0.15–1.00]:  At 65% visibility, scroll advances frames 001–197 smoothly
 const PHASES = {
-  hold: [0, 0.03],              // Phase A: text fully joined & stable
-  textOut: [0.03, 0.08],        // Phase B: text fades out to blackout
-  frameIn: [0.05, 0.20],        // Phase C: frame 001 smooth fade-in (hits ~65% at 0.15)
-  play: [0.15, 1.0],            // Phase D: at 65% visible, scrolling advances frames smoothly 001-197
+  hold:    [0,    0.03],
+  textOut: [0.03, 0.08],
+  frameIn: [0.05, 0.20],
+  play:    [0.15, 1.0],
 };
 
-const SCROLL_HEIGHT_VH = 700;
-const LERP = 0.22;
-const INITIAL_PRELOAD_COUNT = 40;
-const FRAME_AHEAD = 36;
-const FRAME_BEHIND = 12;
-const MAX_CONCURRENT_LOADS = 6;
-const BACKGROUND_COLOR = "#000000";
+// ─── Rendering & Loading Config ────────────────────────────────────────────────
+const SCROLL_HEIGHT_VH      = 700;
+const BACKGROUND_COLOR      = "#000000";
 
+// Time-based LERP — frame-rate-independent interpolation constant (seconds).
+// A value of 0.09 means 90% of remaining distance covered every 100ms.
+const LERP_TAU              = 0.085; // exponential time constant (lower = faster catch-up)
+
+// Frame preloading buffer — wider on each side for fast scrollers
+const FRAME_AHEAD           = 50;   // frames to preload in scroll direction
+const FRAME_BEHIND          = 20;   // frames to keep behind playhead
+const FRAME_EVICT_PADDING   = 15;   // extra hysteresis beyond keep window
+const MAX_CONCURRENT_LOADS  = 8;    // parallel fetches (HTTP/2 supports many)
+const INITIAL_PRELOAD_COUNT = 60;   // first batch loaded immediately on mount
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
 function clamp(value) {
   return Math.max(0, Math.min(1, value));
-}
-
-function easeInOutCubic(value) {
-  return value < 0.5
-    ? 4 * value * value * value
-    : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
 function frameIndexForProgress(progress, firstFrameReady) {
@@ -54,15 +58,18 @@ function frameIndexForProgress(progress, firstFrameReady) {
   return Math.min(TOTAL_FRAMES - 1, Math.round(frameProgress * (TOTAL_FRAMES - 1)));
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function Hero2Sequence() {
   const { markImagesReady } = useSmoothScroll() || {};
-  const sectionRef = useRef(null);
-  const canvasRef = useRef(null);
-  const textWrapRef = useRef(null);
-  const imagesRef = useRef(new Array(TOTAL_FRAMES).fill(null));
-  const targetProgressRef = useRef(0);
+  const sectionRef      = useRef(null);
+  const canvasRef       = useRef(null);
+  const textWrapRef     = useRef(null);
+  const imagesRef       = useRef(new Array(TOTAL_FRAMES).fill(null));
+  const targetProgressRef  = useRef(0);
   const currentProgressRef = useRef(0);
-  const targetFrameRef = useRef(0);
+  const targetFrameRef  = useRef(0);
+
+  // ── Preloader gate: start hero text animation only after preloader exits ──
   useEffect(() => {
     const textWrap = textWrapRef.current;
     if (!textWrap) return undefined;
@@ -90,102 +97,96 @@ export default function Hero2Sequence() {
     };
   }, []);
 
+  // ── Main animation engine ─────────────────────────────────────────────────
   useEffect(() => {
     const section = sectionRef.current;
-    const canvas = canvasRef.current;
+    const canvas  = canvasRef.current;
     const textWrap = textWrapRef.current;
-    const images = imagesRef.current;
+    const images  = imagesRef.current;
     if (!section || !canvas) return undefined;
 
     const context = canvas.getContext("2d", { alpha: false });
-    if (!context) {
-      console.error("[Hero2] Unable to create a 2D context for Hero2Sequence.");
-      return undefined;
-    }
+    if (!context) return undefined;
 
-    const queuedFrames = new Set();
-    const pendingImages = new Map();
-    const failedFrames = new Set();
-    let activeLoads = 0;
+    // ── State ────────────────────────────────────────────────────────────────
+    const queuedFrames   = new Set();
+    const pendingImages  = new Map();
+    const failedFrames   = new Set();
+    let activeLoads      = 0;
     let animationFrameId = null;
-    let lastDrawnFrame = -1;
-    let lastRequestedFrame = -1;
-    let lastEvictedFrame = -Infinity;
-    let firstFrameReady = false;
+    let lastDrawnFrame   = -1;
+    let lastRequestedFrame  = -1;
+    let lastEvictedFrame    = -Infinity;
+    let firstFrameReady  = false;
     let initialBatchStarted = false;
-    let disposed = false;
-    let lastLoggedPhase = "";
+    let disposed         = false;
+    let lastRafTime      = 0;
+    let lastLoggedPhase  = "";
 
+    // ── Phase / style update ──────────────────────────────────────────────────
     const getActivePhase = (progress) => {
-      if (progress < PHASES.hold[1]) return "A: text joined & stable";
-      if (progress < PHASES.textOut[1]) return "B: text fading out";
-      if (progress < PHASES.play[0]) return "C: frame 001 fade-in (to 65%)";
-      if (progress < PHASES.play[1]) return "D: frame sequence playing 001-197 smoothly";
-      return "E: complete, revealing next section";
+      if (progress < PHASES.hold[1])    return "A: text stable";
+      if (progress < PHASES.textOut[1]) return "B: text fading";
+      if (progress < PHASES.play[0])    return "C: frame fade-in";
+      if (progress < PHASES.play[1])    return "D: frame playback";
+      return "E: complete";
     };
 
     const updatePhaseStyles = (progress) => {
       const [outStart, outEnd] = PHASES.textOut;
-      const [inStart, inEnd] = PHASES.frameIn;
+      const [inStart,  inEnd ] = PHASES.frameIn;
 
-      // Text fade out
-      let textExit = 0;
-      if (progress >= outStart) {
-        textExit = clamp((progress - outStart) / (outEnd - outStart));
-      }
-      const textOpacity = progress <= outStart ? 1 : 1 - textExit;
+      // Text exit
+      const textExit = progress <= outStart
+        ? 0
+        : clamp((progress - outStart) / (outEnd - outStart));
+      const textOpacity = 1 - textExit;
 
-      // Frame 001 smooth fade-in: reaches 65% visibility at 0.15 where playback begins, and reaches 100% by 0.20
-      let frameProgress = 0;
-      if (progress >= inStart) {
-        frameProgress = clamp((progress - inStart) / (inEnd - inStart));
-      }
+      // Frame fade-in
+      const frameProgress = progress <= inStart
+        ? 0
+        : clamp((progress - inStart) / (inEnd - inStart));
       const frameOpacity = firstFrameReady
-        ? (progress <= inStart ? 0 : (progress >= inEnd ? 1 : frameProgress))
+        ? (progress >= inEnd ? 1 : frameProgress)
         : 0;
 
+      // DOM writes
       if (textWrap) {
         const isBlackout = progress >= outEnd;
-        textWrap.style.opacity = isBlackout ? "0" : String(textOpacity);
-        textWrap.style.visibility = isBlackout ? "hidden" : "visible";
-        textWrap.style.transform = isBlackout
+        textWrap.style.opacity     = isBlackout ? "0" : String(textOpacity);
+        textWrap.style.visibility  = isBlackout ? "hidden" : "visible";
+        textWrap.style.transform   = isBlackout
           ? "translate3d(0, -20px, 0)"
           : `translate3d(0, ${-textExit * 20}px, 0) scale(${1 - textExit * 0.02})`;
-        textWrap.style.filter =
-          !isBlackout && textExit > 0.05 ? `blur(${textExit * 4}px)` : "none";
+        textWrap.style.filter      = !isBlackout && textExit > 0.05
+          ? `blur(${textExit * 4}px)`
+          : "none";
         textWrap.style.pointerEvents = isBlackout ? "none" : "auto";
       }
 
       canvas.style.opacity = String(frameOpacity);
 
-      const activePhase = getActivePhase(progress);
-      if (activePhase !== lastLoggedPhase) {
-        lastLoggedPhase = activePhase;
-        const currentFrame = frameIndexForProgress(progress, firstFrameReady) + 1;
-        console.log(
-          `[Hero2] Active phase: ${activePhase} | progress: ${progress.toFixed(
-            3
-          )} | frame: ${currentFrame}`
-        );
+      // Phase logging (dev only, cheap — only fires on phase change)
+      const phase = getActivePhase(progress);
+      if (phase !== lastLoggedPhase) {
+        lastLoggedPhase = phase;
+        const f = frameIndexForProgress(progress, firstFrameReady) + 1;
+        console.log(`[Hero2] ${phase} | p=${progress.toFixed(3)} | f=${f}`);
       }
     };
 
+    // ── Canvas draw ───────────────────────────────────────────────────────────
     const drawFrame = (requestedFrame, force = false) => {
       if (!canvas.width || !canvas.height) return;
 
+      // Find nearest loaded frame (search backwards first, then forward)
       let frameIndex = -1;
-      for (let index = requestedFrame; index >= 0; index -= 1) {
-        if (images[index]) {
-          frameIndex = index;
-          break;
-        }
+      for (let i = requestedFrame; i >= 0; i -= 1) {
+        if (images[i]) { frameIndex = i; break; }
       }
       if (frameIndex < 0) {
-        for (let index = requestedFrame + 1; index < TOTAL_FRAMES; index += 1) {
-          if (images[index]) {
-            frameIndex = index;
-            break;
-          }
+        for (let i = requestedFrame + 1; i < TOTAL_FRAMES; i += 1) {
+          if (images[i]) { frameIndex = i; break; }
         }
       }
       if (frameIndex < 0) return;
@@ -194,19 +195,17 @@ export default function Hero2Sequence() {
       const image = images[frameIndex];
       if (!image || !image.naturalWidth || !image.naturalHeight) return;
 
-      const scale = Math.max(
-        canvas.width / image.naturalWidth,
-        canvas.height / image.naturalHeight
-      );
-      const drawWidth = image.naturalWidth * scale;
+      const scale     = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+      const drawWidth  = image.naturalWidth  * scale;
       const drawHeight = image.naturalHeight * scale;
-      const drawX = (canvas.width - drawWidth) / 2;
+      const drawX = (canvas.width  - drawWidth)  / 2;
       const drawY = (canvas.height - drawHeight) / 2;
 
       context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
       lastDrawnFrame = frameIndex;
     };
 
+    // ── Frame loader using fetch + blob URL for maximum decode speed ──────────
     const loadFrame = (index) => {
       const url = FRAME_URLS[index];
       if (!url) return Promise.reject(new Error(`Invalid frame index ${index}`));
@@ -226,49 +225,33 @@ export default function Hero2Sequence() {
         const fail = (err) => {
           if (settled) return;
           settled = true;
-          console.error(`[Hero2] Failed to load frame ${index + 1} (${url}):`, err);
-          reject(new Error(`Unable to load ${url}`));
+          reject(new Error(`Unable to load ${url}: ${err}`));
         };
 
-        const tryDecodeThenFinish = () => {
+        // Use image.decode() for off-main-thread decode when available
+        const tryDecode = () => {
           if (typeof image.decode === "function") {
-            image
-              .decode()
-              .then(() => {
-                finish();
-              })
-              .catch((decodeErr) => {
-                console.warn(
-                  `[Hero2] Decode failed for frame ${index + 1}, using onload fallback:`,
-                  decodeErr
-                );
-                if (image.naturalWidth > 0) {
-                  finish();
-                } else {
-                  fail(decodeErr);
-                }
+            image.decode()
+              .then(finish)
+              .catch(() => {
+                if (image.naturalWidth > 0) finish();
+                else fail("decode failed");
               });
           } else {
             finish();
           }
         };
 
-        image.onload = () => {
-          tryDecodeThenFinish();
-        };
+        image.onload  = tryDecode;
+        image.onerror = (e) => fail(e);
+        image.src     = url;
 
-        image.onerror = (err) => {
-          fail(err);
-        };
-
-        image.src = url;
-
-        if (image.complete && image.naturalWidth > 0) {
-          tryDecodeThenFinish();
-        }
+        // Handle browser cache (image may already be complete)
+        if (image.complete && image.naturalWidth > 0) tryDecode();
       });
     };
 
+    // ── Queue management ──────────────────────────────────────────────────────
     const queueFrame = (index) => {
       if (
         index < 0 ||
@@ -277,36 +260,31 @@ export default function Hero2Sequence() {
         pendingImages.has(index) ||
         queuedFrames.has(index) ||
         failedFrames.has(index)
-      ) {
-        return;
-      }
+      ) return;
       queuedFrames.add(index);
     };
 
     const startInitialBatch = () => {
       if (initialBatchStarted) return;
       initialBatchStarted = true;
-      console.log(`[Hero2] Starting initial preload batch (1-${INITIAL_PRELOAD_COUNT})`);
-      for (
-        let index = 1;
-        index < Math.min(INITIAL_PRELOAD_COUNT, TOTAL_FRAMES);
-        index += 1
-      ) {
-        queueFrame(index);
+      // Load the first INITIAL_PRELOAD_COUNT frames immediately — this is the
+      // critical path for smooth playback as soon as the user starts scrolling
+      for (let i = 1; i < Math.min(INITIAL_PRELOAD_COUNT, TOTAL_FRAMES); i += 1) {
+        queueFrame(i);
       }
       pumpQueue();
     };
 
     const pumpQueue = () => {
-      while (
-        !disposed &&
-        activeLoads < MAX_CONCURRENT_LOADS &&
-        queuedFrames.size > 0
-      ) {
+      while (!disposed && activeLoads < MAX_CONCURRENT_LOADS && queuedFrames.size > 0) {
+        // Priority: nearest to current playhead (direction-aware)
         let nextIndex = null;
         let nearestDistance = Infinity;
+        const target = targetFrameRef.current;
         for (const index of queuedFrames) {
-          const distance = Math.abs(index - targetFrameRef.current);
+          // Slight forward bias: frames ahead cost less than frames behind
+          const fwdBias = index >= target ? 0 : 5;
+          const distance = Math.abs(index - target) + fwdBias;
           if (distance < nearestDistance) {
             nearestDistance = distance;
             nextIndex = index;
@@ -315,6 +293,7 @@ export default function Hero2Sequence() {
 
         queuedFrames.delete(nextIndex);
         activeLoads += 1;
+
         loadFrame(nextIndex)
           .then((image) => {
             if (disposed) {
@@ -322,48 +301,32 @@ export default function Hero2Sequence() {
               return;
             }
             images[nextIndex] = image;
+
             if (nextIndex === 0) {
               firstFrameReady = true;
-              console.log(
-                `[Hero2] First frame ready: ${image.naturalWidth}x${image.naturalHeight}`
-              );
-              try {
-                markImagesReady?.("hero");
-              } catch (_) {}
+              try { markImagesReady?.("hero"); } catch (_) {}
               resizeCanvas();
               drawFrame(0, true);
-              console.log("[Hero2] Initial frame drawn successfully onto canvas");
               updatePhaseStyles(currentProgressRef.current);
               startInitialBatch();
             } else {
-              const currentFrame = frameIndexForProgress(
-                currentProgressRef.current,
-                firstFrameReady
-              );
+              const currentFrame = frameIndexForProgress(currentProgressRef.current, firstFrameReady);
               if (currentFrame === nextIndex) {
                 drawFrame(currentFrame);
               }
             }
 
+            // Kick off more loads around current playhead
             const rect = section.getBoundingClientRect();
-            if (
-              firstFrameReady &&
-              rect.top <= window.innerHeight &&
-              rect.bottom >= 0
-            ) {
+            if (firstFrameReady && rect.top <= window.innerHeight && rect.bottom >= 0) {
               queueFramesAround(targetFrameRef.current);
             }
           })
-          .catch((error) => {
+          .catch((err) => {
             if (!disposed) {
               failedFrames.add(nextIndex);
-              console.error(
-                `[Hero2] Failed to load frame: ${FRAME_URLS[nextIndex]}`,
-                error
-              );
-              if (nextIndex === 0) {
-                startInitialBatch();
-              }
+              console.warn(`[Hero2] Frame ${nextIndex + 1} failed:`, err.message || err);
+              if (nextIndex === 0) startInitialBatch();
             }
           })
           .finally(() => {
@@ -375,44 +338,46 @@ export default function Hero2Sequence() {
     };
 
     const queueFramesAround = (targetIndex) => {
-      const firstIndex = Math.max(0, targetIndex - FRAME_BEHIND);
-      const lastIndex = Math.min(TOTAL_FRAMES - 1, targetIndex + FRAME_AHEAD);
-      for (let index = firstIndex; index <= lastIndex; index += 1) {
-        queueFrame(index);
-      }
+      const first = Math.max(0, targetIndex - FRAME_BEHIND);
+      const last  = Math.min(TOTAL_FRAMES - 1, targetIndex + FRAME_AHEAD);
+      for (let i = first; i <= last; i += 1) queueFrame(i);
       pumpQueue();
     };
 
     const evictDistantFrames = (targetIndex) => {
-      const displayedIndex = frameIndexForProgress(
-        currentProgressRef.current,
-        firstFrameReady
-      );
-      const keepFrom = Math.min(targetIndex, displayedIndex) - FRAME_BEHIND - 10;
-      const keepThrough = Math.max(targetIndex, displayedIndex) + FRAME_AHEAD + 10;
+      const displayedIndex = frameIndexForProgress(currentProgressRef.current, firstFrameReady);
+      const keepFrom    = Math.min(targetIndex, displayedIndex) - FRAME_BEHIND  - FRAME_EVICT_PADDING;
+      const keepThrough = Math.max(targetIndex, displayedIndex) + FRAME_AHEAD   + FRAME_EVICT_PADDING;
 
-      // Keep frame 0 always cached so it never needs reloading
-      for (let index = 1; index < images.length; index += 1) {
-        if (images[index] && (index < keepFrom || index > keepThrough)) {
-          images[index].removeAttribute("src");
-          images[index] = null;
+      // Always keep frame 0 cached (first frame, shown before scroll)
+      for (let i = 1; i < images.length; i += 1) {
+        if (images[i] && (i < keepFrom || i > keepThrough)) {
+          images[i].removeAttribute("src");
+          images[i] = null;
         }
       }
-      for (const index of queuedFrames) {
-        if (index > 0 && (index < keepFrom || index > keepThrough)) {
-          queuedFrames.delete(index);
+      for (const i of queuedFrames) {
+        if (i > 0 && (i < keepFrom || i > keepThrough)) {
+          queuedFrames.delete(i);
         }
       }
     };
 
-    const animate = () => {
+    // ── Time-based animation loop (frame-rate-independent) ────────────────────
+    const animate = (now) => {
       animationFrameId = null;
+
+      // Time-based exponential lerp — produces the same visual speed at 60fps
+      // AND 120fps / 144fps by using elapsed time (dt) instead of frame count.
+      const dt = lastRafTime > 0 ? Math.min((now - lastRafTime) / 1000, 0.1) : 0.016;
+      lastRafTime = now;
+
       const target = targetProgressRef.current;
-      const difference = target - currentProgressRef.current;
-      const next =
-        Math.abs(difference) < 0.0005
-          ? target
-          : currentProgressRef.current + difference * LERP;
+      const diff   = target - currentProgressRef.current;
+      const alpha  = 1 - Math.exp(-dt / LERP_TAU); // frame-rate-independent factor
+      const next   = Math.abs(diff) < 0.0003
+        ? target
+        : currentProgressRef.current + diff * alpha;
       currentProgressRef.current = next;
 
       updatePhaseStyles(next);
@@ -422,7 +387,8 @@ export default function Hero2Sequence() {
         lastRequestedFrame = frameIndex;
         drawFrame(frameIndex);
 
-        if (Math.abs(frameIndex - lastEvictedFrame) >= 8) {
+        // Evict only every 10 frame steps to avoid GC pressure on main thread
+        if (Math.abs(frameIndex - lastEvictedFrame) >= 10) {
           lastEvictedFrame = frameIndex;
           evictDistantFrames(targetFrameRef.current);
         }
@@ -435,19 +401,21 @@ export default function Hero2Sequence() {
 
     const scheduleAnimation = () => {
       if (animationFrameId === null) {
+        lastRafTime = 0; // reset so first tick uses a sane dt
         animationFrameId = requestAnimationFrame(animate);
       }
     };
 
+    // ── Canvas resize ─────────────────────────────────────────────────────────
     const resizeCanvas = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const displayWidth = canvas.clientWidth || window.innerWidth;
+      const displayWidth  = canvas.clientWidth  || window.innerWidth;
       const displayHeight = canvas.clientHeight || window.innerHeight;
-      const targetWidth = Math.max(1, Math.round(displayWidth * dpr));
-      const targetHeight = Math.max(1, Math.round(displayHeight * dpr));
+      const targetWidth   = Math.max(1, Math.round(displayWidth  * dpr));
+      const targetHeight  = Math.max(1, Math.round(displayHeight * dpr));
 
       if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-        canvas.width = targetWidth;
+        canvas.width  = targetWidth;
         canvas.height = targetHeight;
       }
       context.imageSmoothingEnabled = true;
@@ -456,14 +424,15 @@ export default function Hero2Sequence() {
       drawFrame(frameIndexForProgress(currentProgressRef.current, firstFrameReady), true);
     };
 
+    // ── Scroll handler ────────────────────────────────────────────────────────
     const updateScrollState = () => {
       const sectionRect = section.getBoundingClientRect();
       const scrollRange = sectionRect.height - window.innerHeight;
-      const progress =
-        scrollRange > 0 ? clamp(-sectionRect.top / scrollRange) : 0;
+      const progress    = scrollRange > 0 ? clamp(-sectionRect.top / scrollRange) : 0;
       const targetIndex = frameIndexForProgress(progress, firstFrameReady);
+
       targetProgressRef.current = progress;
-      targetFrameRef.current = targetIndex;
+      targetFrameRef.current    = targetIndex;
 
       if (firstFrameReady) {
         queueFramesAround(targetIndex);
@@ -478,9 +447,10 @@ export default function Hero2Sequence() {
       updateScrollState();
     };
 
+    // ── Init ──────────────────────────────────────────────────────────────────
     resizeCanvas();
     updateScrollState();
-    queueFrame(0);
+    queueFrame(0);    // frame 0 is highest priority — always load first
     pumpQueue();
 
     window.addEventListener("scroll", updateScrollState, { passive: true });

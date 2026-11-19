@@ -17,13 +17,17 @@ const TOTAL_FRAMES = FRAME_URLS.length; // 195 frames
 
 // Scroll phases (screen stays pinned through all of them)
 // Phase A: Text fully visible & stable on pure black
-// Phase B: Seamless zero-gap transition (text fades out as frame 001 dissolves in)
-// Phase C: Instant full-clarity frame playback (frames 001-197 smoothly)
-// Phase D: Release sticky sequence after frame 197 to reveal next section
+// Phase B: Text fades out smoothly to blackout
+// Phase C: Frame 001 visible smooth fade-in level (overlaps exit, zero black gap)
+// Phase D: Frame 001 fully visible & frozen at 100% clarity
+// Phase E: Smoothly advance frames 001-197
+// Phase F: Release sticky sequence after frame 197 to reveal next section
 const PHASES = {
-  hold: [0, 0.02],              // Phase A: text fully joined & stable
-  transition: [0.02, 0.07],     // Phase B: zero black gap -> text exits as frame 001 appears
-  play: [0.07, 1.0],            // Phase C: frames 001-197 play smoothly
+  hold: [0, 0.03],              // Phase A: text fully joined & stable
+  textOut: [0.03, 0.09],        // Phase B: text fades out to blackout
+  frameIn: [0.06, 0.38],        // Phase C: deeply extended frame 001 smooth fade-in level
+  frameLock: [0.38, 0.44],      // Phase D: frame 001 fully visible & frozen at 100%
+  play: [0.44, 1.0],            // Phase E: frames 001-197 play smoothly
 };
 
 const SCROLL_HEIGHT_VH = 700;
@@ -116,38 +120,46 @@ export default function Hero2Sequence() {
 
     const getActivePhase = (progress) => {
       if (progress < PHASES.hold[1]) return "A: text joined & stable";
-      if (progress < PHASES.transition[1]) return "B: zero-gap text-to-frame transition";
-      if (progress < PHASES.play[1]) return "C: frame sequence playing 001-197";
-      return "D: complete, revealing next section";
+      if (progress < PHASES.textOut[1]) return "B: text fading out";
+      if (progress < PHASES.frameIn[1]) return "C: frame 001 fade-in level";
+      if (progress < PHASES.frameLock[1]) return "D: frame 001 frozen at 100%";
+      if (progress < PHASES.play[1]) return "E: frame sequence playing 001-197";
+      return "F: complete, revealing next section";
     };
 
     const updatePhaseStyles = (progress) => {
-      const [transStart, transEnd] = PHASES.transition;
+      const [outStart, outEnd] = PHASES.textOut;
+      const [inStart, inEnd] = PHASES.frameIn;
 
-      let transProgress = 0;
-      if (progress >= transStart) {
-        transProgress = clamp((progress - transStart) / (transEnd - transStart));
+      // Text fade out
+      let textExit = 0;
+      if (progress >= outStart) {
+        textExit = clamp((progress - outStart) / (outEnd - outStart));
       }
+      const textOpacity = progress <= outStart ? 1 : 1 - textExit;
 
-      // Zero gap: text fades out directly into frame 001 with no black gap in between
-      const textOpacity = progress <= transStart ? 1 : 1 - transProgress;
+      // Frame 001 smooth fade-in level
+      let frameProgress = 0;
+      if (progress >= inStart) {
+        frameProgress = clamp((progress - inStart) / (inEnd - inStart));
+      }
       const frameOpacity = firstFrameReady
-        ? (progress <= transStart ? 0 : transProgress)
+        ? (progress <= inStart ? 0 : (progress >= inEnd ? 1 : frameProgress))
         : 0;
 
       if (textWrap) {
-        const isBlackout = progress >= transEnd;
+        const isBlackout = progress >= outEnd;
         textWrap.style.opacity = isBlackout ? "0" : String(textOpacity);
         textWrap.style.visibility = isBlackout ? "hidden" : "visible";
         textWrap.style.transform = isBlackout
           ? "translate3d(0, -20px, 0)"
-          : `translate3d(0, ${-transProgress * 20}px, 0) scale(${1 - transProgress * 0.02})`;
+          : `translate3d(0, ${-textExit * 20}px, 0) scale(${1 - textExit * 0.02})`;
         textWrap.style.filter =
-          !isBlackout && transProgress > 0.05 ? `blur(${transProgress * 4}px)` : "none";
+          !isBlackout && textExit > 0.05 ? `blur(${textExit * 4}px)` : "none";
         textWrap.style.pointerEvents = isBlackout ? "none" : "auto";
       }
 
-      canvas.style.opacity = progress >= transEnd ? "1" : String(frameOpacity);
+      canvas.style.opacity = String(frameOpacity);
 
       const activePhase = getActivePhase(progress);
       if (activePhase !== lastLoggedPhase) {

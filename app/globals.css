@@ -150,19 +150,21 @@ body {
 .hero-half {
   display: inline-block;
   opacity: 0;
-  animation-duration: 2.4s;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  animation-fill-mode: both;
   will-change: transform, opacity;
 }
-.hero-left  { animation-name: heroFromLeft; }
-.hero-right { animation-name: heroFromRight; }
+.hero-intro-play .hero-half {
+  animation-duration: 2.2s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+.hero-intro-play .hero-left  { animation-name: heroFromLeft; }
+.hero-intro-play .hero-right { animation-name: heroFromRight; }
 
 /* line 1 first, line 2 only after line 1 has fully joined */
-.hero-line-1 .hero-half,
-.hero-line-1 .hero-mask { animation-delay: 0.4s; }
-.hero-line-2 .hero-half,
-.hero-line-2 .hero-mask { animation-delay: 3.1s; }
+.hero-intro-play .hero-line-1 .hero-half,
+.hero-intro-play .hero-line-1 .hero-mask { animation-delay: 0.15s; }
+.hero-intro-play .hero-line-2 .hero-half,
+.hero-intro-play .hero-line-2 .hero-mask { animation-delay: 2.1s; }
 
 /* red glow (on outer span so it follows the masked text) */
 .hero-glow { filter: drop-shadow(0 0 22px rgba(220, 38, 38, 0.55)); }
@@ -170,7 +172,9 @@ body {
 /* inner span: gradient text + edge-fade mask */
 .hero-mask {
   display: inline-block;
-  animation-duration: 2.4s;
+}
+.hero-intro-play .hero-mask {
+  animation-duration: 2.2s;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   animation-fill-mode: both;
   animation-name: heroFadeEdge;
@@ -217,16 +221,14 @@ body {
   100% { --fade: 0%; }
 }
 
-/* label, divider, subtitle */
-.hero-label,
-.hero-divider,
-.hero-subtitle {
+/* divider */
+.hero-divider {
   opacity: 0;
-  animation: heroFadeUp 1s ease-out both;
 }
-.hero-label    { animation-delay: 0.1s; }
-.hero-divider  { animation-delay: 5.6s; }
-.hero-subtitle { animation-delay: 5.9s; }
+.hero-intro-play .hero-divider {
+  animation: heroFadeUp 1s ease-out both;
+  animation-delay: 4.1s;
+}
 
 @keyframes heroFadeUp {
   from { opacity: 0; transform: translateY(12px); }

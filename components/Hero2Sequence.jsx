@@ -65,6 +65,32 @@ export default function Hero2Sequence() {
   const targetProgressRef = useRef(0);
   const currentProgressRef = useRef(0);
   const targetFrameRef = useRef(0);
+  useEffect(() => {
+    const textWrap = textWrapRef.current;
+    if (!textWrap) return undefined;
+
+    const startIntro = () => {
+      textWrap.classList.add("hero-intro-play");
+      textWrap.classList.remove("hero-intro-wait");
+    };
+
+    const hasLoadingPreloader =
+      typeof document !== "undefined" &&
+      !!document.querySelector('[role="status"][aria-label="Loading"]');
+
+    if (!hasLoadingPreloader) {
+      startIntro();
+      return undefined;
+    }
+
+    window.addEventListener("preloader:done", startIntro, { once: true });
+    const timer = setTimeout(startIntro, 2800);
+
+    return () => {
+      window.removeEventListener("preloader:done", startIntro);
+      clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -510,7 +536,7 @@ export default function Hero2Sequence() {
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-3 text-center sm:px-6">
           <div
             ref={textWrapRef}
-            className="mx-auto w-full max-w-6xl will-change-[opacity,transform,filter]"
+            className="hero-intro-wait mx-auto w-full max-w-6xl will-change-[opacity,transform,filter]"
           >
             {/* Heading */}
             <h1 className="text-2xl font-extrabold uppercase leading-[1.05] tracking-[-0.04em] sm:text-4xl md:text-6xl md:tracking-tight lg:text-7xl">

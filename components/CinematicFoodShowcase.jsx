@@ -100,6 +100,7 @@ export default function CinematicFoodShowcase() {
   const isLoopRunningRef = useRef(false);
   const isVisibleRef = useRef(false);
   const resizeTimeoutRef = useRef(null);
+  const pumpFrameQueueRef = useRef(null);
 
   // ── Frame streaming: priority list, nearest-first, direction-aware ─────────
   const pumpFrameQueue = useCallback(() => {
@@ -145,10 +146,13 @@ export default function CinematicFoodShowcase() {
         .finally(() => {
           pendingFramesRef.current[d].delete(f);
           activeLoadsRef.current -= 1;
-          pumpFrameQueue();
+          pumpFrameQueueRef.current?.();
         });
     }
   }, []);
+  useEffect(() => {
+    pumpFrameQueueRef.current = pumpFrameQueue;
+  }, [pumpFrameQueue]);
 
   // ── Free memory far from the playhead (hysteresis, cheap) ──────────────────
   const evictFrames = useCallback((dishIdx, target, sweepAll) => {
@@ -260,14 +264,18 @@ export default function CinematicFoodShowcase() {
     const sh = bmp.height;
     if (cw <= 0 || ch <= 0) return;
 
+    // Fit edge-to-edge on laptop and desktop screens with zero side gaps
     const scale = Math.max(cw / sw, ch / sh);
-    const dw = sw * scale;
-    const dh = sh * scale;
+    const dw = Math.round(sw * scale);
+    const dh = Math.round(sh * scale);
     const dx = Math.round((cw - dw) / 2);
-    const dy = Math.round((ch - dh) / 2);
+    // Bias towards the top (0.35) so the cherry and top fruits are preserved without cropping
+    const dy = Math.round((ch - dh) * 0.35);
 
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, cw, ch);
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "medium";
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bmp, dx, dy, dw, dh);
   }, []);
 
@@ -587,7 +595,7 @@ export default function CinematicFoodShowcase() {
       ref={wrapperRef}
       id="food-showcase"
       aria-label="Signature dishes showcase"
-      className="relative w-full bg-[#050505] text-[#f7f0df] select-none"
+      className="relative w-full bg-black text-[#f7f0df] select-none"
       style={{ height: totalHeight }}
     >
       {!prefersReducedMotion && (
@@ -605,15 +613,15 @@ export default function CinematicFoodShowcase() {
       {/* ── Sticky Fullscreen Stage (100dvh) ── */}
       <div
         ref={stageRef}
-        className="sticky top-0 z-20 h-[100dvh] w-full overflow-hidden bg-[#050505]"
+        className="sticky top-0 z-20 h-[100dvh] w-full overflow-hidden bg-black"
         style={{ transform: "translate3d(0, 0, 0)" }}
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 md:h-32"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 md:h-20"
           style={{
             background:
-              "linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.6) 35%, rgba(0, 0, 0, 0) 100%)",
+              "linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, transparent 100%)",
           }}
         />
 
@@ -623,7 +631,7 @@ export default function CinematicFoodShowcase() {
           className="absolute inset-0 h-full w-full"
           style={{
             transform: "translateZ(0)",
-            backgroundColor: "#050505",
+            backgroundColor: "#000000",
             opacity: 1,
             filter: "none",
             mixBlendMode: "normal",

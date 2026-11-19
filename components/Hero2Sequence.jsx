@@ -18,16 +18,14 @@ const TOTAL_FRAMES = FRAME_URLS.length; // 195 frames
 // Scroll phases (screen stays pinned through all of them)
 // Phase A: Text fully visible & stable on pure black
 // Phase B: Text fades out smoothly to blackout
-// Phase C: Frame 001 visible smooth fade-in level (overlaps exit, zero black gap)
-// Phase D: Frame 001 fully visible & frozen at 100% clarity
-// Phase E: Smoothly advance frames 001-197
-// Phase F: Release sticky sequence after frame 197 to reveal next section
+// Phase C: Frame 001 smooth fade-in (reaches 65% visible at 0.15)
+// Phase D: At 65% visibility, scrolling smoothly advances frames 001-197
+// Phase E: Release sticky sequence after frame 197 to reveal next section
 const PHASES = {
   hold: [0, 0.03],              // Phase A: text fully joined & stable
-  textOut: [0.03, 0.09],        // Phase B: text fades out to blackout
-  frameIn: [0.06, 0.38],        // Phase C: deeply extended frame 001 smooth fade-in level
-  frameLock: [0.38, 0.44],      // Phase D: frame 001 fully visible & frozen at 100%
-  play: [0.44, 1.0],            // Phase E: frames 001-197 play smoothly
+  textOut: [0.03, 0.08],        // Phase B: text fades out to blackout
+  frameIn: [0.05, 0.20],        // Phase C: frame 001 smooth fade-in (hits ~65% at 0.15)
+  play: [0.15, 1.0],            // Phase D: at 65% visible, scrolling advances frames smoothly 001-197
 };
 
 const SCROLL_HEIGHT_VH = 700;
@@ -121,10 +119,9 @@ export default function Hero2Sequence() {
     const getActivePhase = (progress) => {
       if (progress < PHASES.hold[1]) return "A: text joined & stable";
       if (progress < PHASES.textOut[1]) return "B: text fading out";
-      if (progress < PHASES.frameIn[1]) return "C: frame 001 fade-in level";
-      if (progress < PHASES.frameLock[1]) return "D: frame 001 frozen at 100%";
-      if (progress < PHASES.play[1]) return "E: frame sequence playing 001-197";
-      return "F: complete, revealing next section";
+      if (progress < PHASES.play[0]) return "C: frame 001 fade-in (to 65%)";
+      if (progress < PHASES.play[1]) return "D: frame sequence playing 001-197 smoothly";
+      return "E: complete, revealing next section";
     };
 
     const updatePhaseStyles = (progress) => {
@@ -138,7 +135,7 @@ export default function Hero2Sequence() {
       }
       const textOpacity = progress <= outStart ? 1 : 1 - textExit;
 
-      // Frame 001 smooth fade-in level
+      // Frame 001 smooth fade-in: reaches 65% visibility at 0.15 where playback begins, and reaches 100% by 0.20
       let frameProgress = 0;
       if (progress >= inStart) {
         frameProgress = clamp((progress - inStart) / (inEnd - inStart));

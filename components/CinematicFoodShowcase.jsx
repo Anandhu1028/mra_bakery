@@ -422,6 +422,9 @@ export default function CinematicFoodShowcase() {
     const wrapper = wrapperRef.current;
     if (!wrapper) return undefined;
 
+    frameLoaderRef.current = loadFrame;
+    pumpFrameQueue();
+
     let started = false;
     const preloadObserver = new IntersectionObserver(
       ([entry]) => {
@@ -605,6 +608,15 @@ export default function CinematicFoodShowcase() {
         className="sticky top-0 z-20 h-[100dvh] w-full overflow-hidden bg-[#050505]"
         style={{ transform: "translate3d(0, 0, 0)" }}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 md:h-32"
+          style={{
+            background:
+              "linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.6) 35%, rgba(0, 0, 0, 0) 100%)",
+          }}
+        />
+
         {/* Single hardware-accelerated canvas */}
         <canvas
           ref={canvasRef}

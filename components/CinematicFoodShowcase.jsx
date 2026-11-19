@@ -34,7 +34,7 @@ const DISHES = ORDERED_IDS.map((id) =>
 ).filter(Boolean);
 
 const DISH_COUNT = DISHES.length;
-const SEGMENT_VH = 100;
+const SEGMENT_VH = 200;
 
 // Frame streaming
 const FRAME_AHEAD = 30; // frames to load in the scroll direction

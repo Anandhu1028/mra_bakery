@@ -5,6 +5,7 @@ import CinematicFoodShowcase from "@/components/CinematicFoodShowcase";
 import Story from "@/components/Story";
 import CakeSequence from "@/components/CakeSequence";
 import Hero1Sequence from "@/components/Hero1Sequence";
+import Hero2Sequence from "@/components/Hero2Sequence";
 import Dishes from "@/components/Dishes";
 import Menu from "@/components/Menu";
 import Branches from "@/components/Branches";
@@ -25,7 +26,10 @@ export default function Home() {
       /> */}
 
       {/* Hero 1: Frame sequence */}
-      <Hero1Sequence />
+      {/* <Hero1Sequence /> */}
+
+      {/* Hero 2: Frame sequence */}
+      <Hero2Sequence />
 
       {/* Section 1: Our Story (About Section directly after Hero) */}
       <Story />

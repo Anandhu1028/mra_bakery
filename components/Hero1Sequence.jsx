@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { AnimatePresence, motion } from "framer-motion";
 import { usePrefersReducedMotion } from "@/context/SmoothScrollContext";
 
 const FRAME_COUNT = 240;
@@ -14,6 +15,35 @@ const TRACK_HEIGHT = "600vh";
 const BACKGROUND_COLOR = "#000000";
 const MAX_DPR = 1.5;
 const DAMPING = 9; // higher = snappier, lower = silkier (try 7 – 12)
+
+const textSections = [
+  {
+    start: 1,
+    end: 5,
+    align: "center",
+    variant: "intro",
+    lines: ["WHERE FLAVOUR MEETS"],
+    highlight: "ELEGANCE",
+  },
+  {
+    start: 51,
+    end: 101,
+    align: "left",
+    variant: "default",
+    title: "A TASTE WORTH REMEMBERING",
+    titleLine: "A TASTE WORTH",
+    highlightLine: "REMEMBERING",
+  },
+  {
+    start: 220,
+    end: FRAME_COUNT,
+    align: "left",
+    variant: "default",
+    title: "CRAFTED TO DELIGHT EVERY SENSE",
+    titleLine: "CRAFTED TO DELIGHT",
+    highlightLine: "EVERY SENSE",
+  },
+];
 
 function getFrameUrl(index) {
   return `/hero/${String(index).padStart(5, "0")}.webp`;
@@ -46,6 +76,7 @@ export default function Hero1Sequence() {
   const generationRef = useRef(0);
   const requestFramesRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentFrame, setCurrentFrame] = useState(1);
 
   const getNearestBitmap = useCallback((target) => {
     const bitmaps = bitmapsRef.current;
@@ -224,6 +255,7 @@ export default function Hero1Sequence() {
       if (frame !== frameRef.current) {
         directionRef.current = frame > frameRef.current ? 1 : -1;
         frameRef.current = frame;
+        setCurrentFrame(frame);
         requestFrames(frame);
       }
       drawFrame();
@@ -292,22 +324,36 @@ export default function Hero1Sequence() {
     headerObserver?.observe(header);
 
     let scrollContext;
-    if (!prefersReducedMotion) {
-      gsap.registerPlugin(ScrollTrigger);
-      scrollContext = gsap.context(() => {
-        ScrollTrigger.create({
-          trigger: track,
-          start: "top top",
-          end: "bottom bottom",
-          scrub: true,
-          invalidateOnRefresh: true,
-          onUpdate: (self) => {
+    gsap.registerPlugin(ScrollTrigger);
+    scrollContext = gsap.context(() => {
+      ScrollTrigger.create({
+        trigger: track,
+        start: "top top",
+        end: "bottom bottom",
+        scrub: true,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => {
+          if (prefersReducedMotion) {
+            const frame = Math.max(
+              1,
+              Math.min(FRAME_COUNT, Math.round(1 + self.progress * (FRAME_COUNT - 1)))
+            );
+            if (frame !== frameRef.current) {
+              directionRef.current = frame > frameRef.current ? 1 : -1;
+              frameRef.current = frame;
+              currentProgressRef.current = self.progress;
+              targetProgressRef.current = self.progress;
+              setCurrentFrame(frame);
+              requestFrames(frame);
+              drawFrame();
+            }
+          } else {
             targetProgressRef.current = self.progress;
             startLoop();
-          },
-        });
-      }, track);
-    }
+          }
+        },
+      });
+    }, track);
 
     const visObserver = new IntersectionObserver(
       ([entry]) => {
@@ -381,32 +427,106 @@ export default function Hero1Sequence() {
               "linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.82) 10%, rgba(0, 0, 0, 0.56) 22%, rgba(0, 0, 0, 0.3) 36%, rgba(0, 0, 0, 0.12) 48%, transparent 58%), radial-gradient(ellipse 82% 86% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.48) 100%)",
           }}
         />
-        <h1
-          className={`hero1-sequence-heading pointer-events-none absolute left-6 top-1/2 z-30 -translate-y-1/2 sm:left-12 lg:left-20 ${
-            isLoaded ? "is-ready" : ""
-          }`}
-        >
-          <span className="hero1-sequence-line" data-copy-line="1">
-            <span className="hero1-sequence-row">Where Flavour</span>
-            <span className="hero1-sequence-row">Meets</span>
-            <span className="hero1-sequence-row hero1-sequence-highlight">
-              Elegance
-            </span>
-          </span>
-          <span className="hero1-sequence-line" data-copy-line="2">
-            <span className="hero1-sequence-row">A Taste Worth</span>
-            <span className="hero1-sequence-row hero1-sequence-highlight">
-              Remembering
-            </span>
-          </span>
-          <span className="hero1-sequence-line" data-copy-line="3">
-            <span className="hero1-sequence-row">Crafted to</span>
-            <span className="hero1-sequence-row">Delight Every</span>
-            <span className="hero1-sequence-row hero1-sequence-highlight">
-              Sense
-            </span>
-          </span>
-        </h1>
+        {(() => {
+          const activeSection = textSections.find(
+            (section) =>
+              currentFrame >= section.start && currentFrame <= section.end
+          );
+
+          if (!activeSection) return null;
+          const activeSectionIndex = textSections.indexOf(activeSection);
+          const alignmentClasses =
+            activeSection.align === "center"
+              ? "items-center justify-center text-center"
+              : "items-center justify-start text-left pl-6";
+
+          return (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeSectionIndex}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={
+                  activeSection.variant === "intro"
+                    ? { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
+                    : { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
+                }
+                className={`pointer-events-none absolute inset-0 z-30 flex ${alignmentClasses} bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.55),transparent_70%)]`}
+              >
+                {activeSection.variant === "intro" ? (
+                  <div className="w-full max-w-[92rem] px-5">
+                    <motion.h1
+                      initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{
+                        duration: 0.8,
+                        delay: 0.15,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <span className="block whitespace-nowrap bg-gradient-to-b from-white to-white/70 bg-clip-text text-5xl font-extrabold uppercase leading-[0.95] tracking-tight text-transparent md:text-7xl lg:text-8xl">
+                        {activeSection.lines[0]}
+                      </span>
+                    </motion.h1>
+                    <motion.div
+                      initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{
+                        duration: 0.8,
+                        delay: 0.45,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="mt-1 bg-[linear-gradient(to_bottom,#ef4444_0%,#e11d24_28%,#b91c1c_58%,#7f1515_78%,#3f0707_100%)] bg-clip-text text-5xl font-extrabold uppercase leading-[0.95] tracking-tight text-transparent drop-shadow-[0_0_18px_rgba(220,38,38,0.7)] drop-shadow-[0_0_36px_rgba(185,28,28,0.42)] md:text-7xl lg:text-8xl"
+                    >
+                      {activeSection.highlight}
+                    </motion.div>
+                    <div className="absolute inset-x-0 bottom-8 flex justify-center md:bottom-10">
+                      <span
+                        className="block h-8 w-5 rounded-full border border-white/40"
+                        aria-label="Scroll"
+                      >
+                        <span className="mx-auto mt-1.5 block h-1.5 w-1.5 animate-bounce rounded-full bg-white/70" />
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-5xl px-5">
+                    <div className="flex items-center gap-4">
+                      <motion.span
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 82, opacity: 1 }}
+                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        className="block w-1 shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-800"
+                        aria-hidden="true"
+                      />
+                      <h1
+                        className="text-4xl font-extrabold uppercase leading-[1.05] tracking-tight"
+                        style={{ fontSize: "45px" }}
+                      >
+                        <span className="block text-[#f7f0df]">
+                          {activeSection.titleLine ?? activeSection.title}
+                        </span>
+                        {activeSection.highlightLine && (
+                          <span className="mt-1 block bg-[linear-gradient(to_bottom,#ef4444_0%,#dc2626_38%,#7f1515_72%,#220404_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(220,38,38,0.38)]">
+                            {activeSection.highlightLine}
+                          </span>
+                        )}
+                      </h1>
+                    </div>
+                    {activeSection.subtitle && (
+                      <p className="mt-4 max-w-xl text-base text-white/70 md:text-lg">
+                        {activeSection.subtitle}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          );
+        })()}
       </div>
     </section>
   );

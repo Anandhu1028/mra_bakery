@@ -124,6 +124,22 @@ body {
   color: #ef4444;
 }
 
+.hero-frame-text {
+  animation: hero-frame-text-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes hero-frame-text-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @supports (font-size: 1cqw) {
   .dish-caption {
     font-size: clamp(2rem, 8cqw, 5rem);

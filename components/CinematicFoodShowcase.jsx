@@ -43,9 +43,7 @@ const FRAME_KEEP_RADIUS = 45; // only evict beyond this (hysteresis)
 const MAX_CONCURRENT_FRAME_LOADS = 6;
 
 // Rendering
-const MAX_DPR = 1.5; // big canvas = slow; 1.5 looks sharp enough
 const DAMPING = 10; // higher = snappier, lower = silkier (try 8 – 14)
-const EDGE_SAMPLE_HEIGHT = 12;
 
 const DISH_DURATION_UNITS = DISHES.map((dish) =>
   Math.max(1, dish.frames.length / 120)
@@ -59,93 +57,15 @@ const TRANSITION_VH = 100;
 const SHOWCASE_SCROLL_VH = TOTAL_DISH_UNITS * SEGMENT_VH;
 const TOTAL_HEIGHT_VH = SHOWCASE_SCROLL_VH + TRANSITION_VH + STAGE_VH;
 
-// Fade pacing:
-// 0.00 – 0.02: Pure black hold
-// 0.02 – 0.15: Smoothstep fade in
+// Frame pacing:
+// 0.00 – 0.15: Hold the first frame
 // 0.15 – 0.85: Interactive frame scrub
-// 0.85 – 1.00: Fade out, except the final dish which holds its last frame
+// 0.85 – 1.00: Hold the last frame
 const FADE_IN_START = 0.02;
 const FADE_IN_END = 0.15;
 const FADE_OUT_START = 0.85;
 const FADE_OUT_END = 0.98;
 
-function smoothstep(min, max, value) {
-  const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  return x * x * (3 - 2 * x);
-}
-
-function parseGlowColor(glow) {
-  const channels = glow.match(/\d+(?:\.\d+)?/g);
-  return channels?.length >= 3
-    ? channels.slice(0, 3).map(Number)
-    : [48, 34, 26];
-}
-
-function sampleEdgeColors(ctx, bitmap, fallbackColor) {
-  const stripWidth = Math.max(1, Math.round(bitmap.width * 0.06));
-  ctx.clearRect(0, 0, 2, EDGE_SAMPLE_HEIGHT);
-  ctx.drawImage(
-    bitmap,
-    0,
-    0,
-    stripWidth,
-    bitmap.height,
-    0,
-    0,
-    1,
-    EDGE_SAMPLE_HEIGHT
-  );
-  ctx.drawImage(
-    bitmap,
-    bitmap.width - stripWidth,
-    0,
-    stripWidth,
-    bitmap.height,
-    1,
-    0,
-    1,
-    EDGE_SAMPLE_HEIGHT
-  );
-
-  const pixels = ctx.getImageData(0, 0, 2, EDGE_SAMPLE_HEIGHT).data;
-  const averageColumn = (column) => {
-    const color = [0, 0, 0];
-    let count = 0;
-
-    for (let y = 0; y < EDGE_SAMPLE_HEIGHT; y += 1) {
-      const offset = (y * 2 + column) * 4;
-      const alpha = pixels[offset + 3] / 255;
-      const brightness =
-        (pixels[offset] + pixels[offset + 1] + pixels[offset + 2]) / 3;
-      if (alpha < 0.1 || brightness < 8) continue;
-
-      color[0] += pixels[offset] * alpha;
-      color[1] += pixels[offset + 1] * alpha;
-      color[2] += pixels[offset + 2] * alpha;
-      count += alpha;
-    }
-
-    if (count === 0) return fallbackColor;
-
-    const sampledColor = color.map((channel) => channel / count);
-    const sampleWeight =
-      sampledColor.reduce((sum, channel) => sum + channel, 0) / 3 < 30
-        ? 0.45
-        : 0.82;
-    return sampledColor.map(
-      (channel, index) =>
-        channel * sampleWeight + fallbackColor[index] * (1 - sampleWeight)
-    );
-  };
-
-  return [averageColumn(0), averageColumn(1)];
-}
-
-function darkenColor(color, strength) {
-  return `rgb(${color
-    .map((channel) => Math.round(5 + (channel - 5) * strength))
-    .join(",")})`;
-}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CinematicFoodShowcase() {
@@ -159,9 +79,6 @@ export default function CinematicFoodShowcase() {
   const bottomCurtainRef = useRef(null);
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
-  const edgeSampleContextRef = useRef(null);
-  const glowRef = useRef(null);
-  const overlayRef = useRef(null);
 
   // Frame cache: [dishIdx][frameIdx] = ImageBitmap | null
   const cacheRef = useRef(DISHES.map((d) => new Array(d.frames.length).fill(null)));
@@ -178,13 +95,11 @@ export default function CinematicFoodShowcase() {
   const targetValRef = useRef(0); // set by ScrollTrigger
   const activeDishIndexRef = useRef(-1);
   const lastDrawnKeyRef = useRef(-1);
-  const lastOverlayRef = useRef("");
   const lastTickRef = useRef(0);
   const rafIdRef = useRef(null);
   const isLoopRunningRef = useRef(false);
   const isVisibleRef = useRef(false);
   const resizeTimeoutRef = useRef(null);
-  const pixelRatioRef = useRef(1);
 
   // ── Frame streaming: priority list, nearest-first, direction-aware ─────────
   const pumpFrameQueue = useCallback(() => {
@@ -208,7 +123,7 @@ export default function CinematicFoodShowcase() {
         }
       }
     }
-    // Frame 0 of every dish (low priority) so each dish can fade in instantly.
+    // Frame 0 of every dish (low priority) so its first frame is ready.
     DISHES.forEach((_, d) => list.push({ dishIdx: d, frameIdx: 0 }));
 
     for (let i = 0; i < list.length; i += 1) {
@@ -253,7 +168,7 @@ export default function CinematicFoodShowcase() {
     }
   }, []);
 
-  // ── Compute dish index, frame index, and opacities from progress ───────────
+  // ── Compute dish index and frame index from progress ────────────────────────
   const computeState = useCallback((val) => {
     const clampedVal = Math.min(TOTAL_DISH_UNITS, Math.max(0, val));
     let dishIdx = 0;
@@ -273,35 +188,19 @@ export default function CinematicFoodShowcase() {
         : (clampedVal - dishStart) / DISH_DURATION_UNITS[dishIdx];
     const totalFrames = DISHES[dishIdx].frames.length;
 
-    let overlayOpacity = 0;
-    let captionOpacity = 1;
     let frameIndex = 0;
 
     if (dishIdx === DISH_COUNT - 1 && s >= FADE_OUT_START) {
-      overlayOpacity = 0;
-      captionOpacity = 1;
       frameIndex = totalFrames - 1;
     } else if (s <= FADE_IN_START) {
-      overlayOpacity = 1;
-      captionOpacity = 0;
       frameIndex = 0;
     } else if (s < FADE_IN_END) {
-      const t = smoothstep(FADE_IN_START, FADE_IN_END, s);
-      overlayOpacity = 1 - t;
-      captionOpacity = t;
       frameIndex = 0;
     } else if (s > FADE_OUT_END) {
-      overlayOpacity = 1;
-      captionOpacity = 0;
       frameIndex = totalFrames - 1;
     } else if (s >= FADE_OUT_START) {
-      const t = smoothstep(FADE_OUT_START, FADE_OUT_END, s);
-      overlayOpacity = t;
-      captionOpacity = 1 - t;
       frameIndex = totalFrames - 1;
     } else {
-      overlayOpacity = 0;
-      captionOpacity = 1;
       const scrubProgress = (s - FADE_IN_END) / (FADE_OUT_START - FADE_IN_END);
       frameIndex = Math.min(
         totalFrames - 1,
@@ -311,8 +210,6 @@ export default function CinematicFoodShowcase() {
 
     return {
       dishIdx,
-      overlayOpacity: Math.min(1, Math.max(0, overlayOpacity)),
-      captionOpacity: Math.min(1, Math.max(0, captionOpacity)),
       frameIndex,
     };
   }, []);
@@ -361,66 +258,17 @@ export default function CinematicFoodShowcase() {
     const ch = canvas.height;
     const sw = bmp.width;
     const sh = bmp.height;
-    const availableHeight = ch;
-    if (availableHeight <= 0) return;
+    if (cw <= 0 || ch <= 0) return;
 
-    const scale = Math.min(cw / sw, availableHeight / sh);
+    const scale = Math.max(cw / sw, ch / sh);
     const dw = sw * scale;
     const dh = sh * scale;
     const dx = Math.round((cw - dw) / 2);
-    const dy = Math.round((availableHeight - dh) / 2);
+    const dy = Math.round((ch - dh) / 2);
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "medium";
-
-    if (dx > 0 || dy > 0 || dw < cw || dh < ch) {
-      ctx.fillStyle = "#050505";
-      ctx.fillRect(0, 0, cw, ch);
-    }
-
-    if (dx > 0) {
-      if (!edgeSampleContextRef.current) {
-        const sampleCanvas = document.createElement("canvas");
-        sampleCanvas.width = 2;
-        sampleCanvas.height = EDGE_SAMPLE_HEIGHT;
-        edgeSampleContextRef.current = sampleCanvas.getContext("2d", {
-          willReadFrequently: true,
-        });
-      }
-
-      const fallbackColor = parseGlowColor(DISHES[dishIdx].glow);
-      const [leftColor, rightColor] = edgeSampleContextRef.current
-        ? sampleEdgeColors(edgeSampleContextRef.current, bmp, fallbackColor)
-        : [fallbackColor, fallbackColor];
-      const sideGradient = (startX, endX, color) => {
-        const gradient = ctx.createLinearGradient(startX, 0, endX, 0);
-        gradient.addColorStop(0, "#050505");
-        gradient.addColorStop(0.55, darkenColor(color, 0.12));
-        gradient.addColorStop(0.86, darkenColor(color, 0.24));
-        gradient.addColorStop(1, darkenColor(color, 0.34));
-        return gradient;
-      };
-
-      const leftShade = sideGradient(0, dx, leftColor);
-      ctx.fillStyle = leftShade;
-      ctx.fillRect(0, 0, dx, ch);
-
-      const rightShade = sideGradient(cw, cw - dx, rightColor);
-      ctx.fillStyle = rightShade;
-      ctx.fillRect(cw - dx, 0, dx, ch);
-
-      const edgeGlow = leftColor.map((channel, index) =>
-        Math.round((channel + rightColor[index]) / 2)
-      );
-      ctx.save();
-      ctx.shadowColor = `rgba(${edgeGlow.join(",")}, 0.08)`;
-      ctx.shadowBlur = Math.round(8 * pixelRatioRef.current);
-    } else {
-      ctx.save();
-    }
-    ctx.filter = "saturate(0.92) contrast(0.93) brightness(0.98)";
     ctx.drawImage(bmp, dx, dy, dw, dh);
-    ctx.restore();
   }, []);
 
   const requestFrames = useCallback(
@@ -451,20 +299,9 @@ export default function CinematicFoodShowcase() {
   // ── Apply state to DOM & Canvas ────────────────────────────────────────────
   const applyState = useCallback(
     (val, forceRedraw = false) => {
-      const { dishIdx, overlayOpacity, frameIndex } = computeState(val);
-
-      const overlayStr = overlayOpacity.toFixed(3);
-      if (overlayRef.current && overlayStr !== lastOverlayRef.current) {
-        lastOverlayRef.current = overlayStr;
-        overlayRef.current.style.opacity = overlayStr;
-      }
-
+      const { dishIdx, frameIndex } = computeState(val);
       if (dishIdx !== activeDishIndexRef.current || forceRedraw) {
         activeDishIndexRef.current = dishIdx;
-        const currentDish = DISHES[dishIdx];
-        if (glowRef.current) {
-          glowRef.current.style.background = `radial-gradient(circle at 50% 38%, ${currentDish.glow} 0%, rgba(5,5,5,0.45) 36%, rgba(5,5,5,0.85) 100%)`;
-        }
       }
 
       requestFrames(dishIdx, frameIndex);
@@ -617,11 +454,10 @@ export default function CinematicFoodShowcase() {
     const canvas = canvasRef.current;
     if (!stage || !canvas) return undefined;
 
-    const resize = (width, height) => {
-      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-      pixelRatioRef.current = dpr;
-      const cw = Math.max(1, Math.round(width * dpr));
-      const ch = Math.max(1, Math.round(height * dpr));
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const cw = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const ch = Math.max(1, Math.round(canvas.clientHeight * dpr));
 
       if (canvas.width !== cw || canvas.height !== ch) {
         canvas.width = cw;
@@ -631,8 +467,7 @@ export default function CinematicFoodShowcase() {
       applyState(currentValRef.current, true);
     };
 
-    const initial = stage.getBoundingClientRect();
-    resize(initial.width, initial.height);
+    resize();
 
     const scheduleResize = () => {
       if (resizeTimeoutRef.current !== null) {
@@ -640,8 +475,7 @@ export default function CinematicFoodShowcase() {
       }
       resizeTimeoutRef.current = setTimeout(() => {
         resizeTimeoutRef.current = null;
-        const rect = stage.getBoundingClientRect();
-        resize(rect.width, rect.height);
+        resize();
       }, 150);
     };
 
@@ -765,43 +599,22 @@ export default function CinematicFoodShowcase() {
         />
       )}
 
-      {/* ── Sticky Fullscreen Stage (100vh) ── */}
+      {/* ── Sticky Fullscreen Stage (100dvh) ── */}
       <div
         ref={stageRef}
-        className="sticky top-0 z-20 flex h-screen w-full items-center justify-center overflow-hidden bg-[#050505]"
+        className="sticky top-0 z-20 h-[100dvh] w-full overflow-hidden bg-[#050505]"
         style={{ transform: "translate3d(0, 0, 0)" }}
       >
         {/* Single hardware-accelerated canvas */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 h-full w-full block border-0 outline-none"
+          className="absolute inset-0 h-full w-full"
           style={{
             transform: "translateZ(0)",
             backgroundColor: "#050505",
-          }}
-        />
-
-        {/* Ambient glow (no CSS transition: gradients can't animate, it only caused repaints) */}
-        <div
-          ref={glowRef}
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at 50% 38%, ${DISHES[0].glow} 0%, rgba(5,5,5,0.45) 36%, rgba(5,5,5,0.85) 100%)`,
-          }}
-        />
-
-        {/* Cinematic vignettes */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#050505]/90 via-[#050505]/20 to-[#050505]/85" />
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#050505] via-transparent to-[#050505]/25" />
-
-        {/* Full-stage black overlay (driven purely by scroll progress) */}
-        <div
-          ref={overlayRef}
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
             opacity: 1,
-            zIndex: 20,
-            willChange: "opacity",
+            filter: "none",
+            mixBlendMode: "normal",
           }}
         />
 

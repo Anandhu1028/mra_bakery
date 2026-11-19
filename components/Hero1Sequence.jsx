@@ -28,15 +28,6 @@ const textSections = [
     titleLine: "A TASTE WORTH",
     highlightLine: "REMEMBERING",
   },
-  {
-    start: 220,
-    end: FRAME_COUNT,
-    align: "center",
-    variant: "default",
-    title: "CRAFTED TO DELIGHT EVERY SENSE",
-    titleLine: "CRAFTED TO DELIGHT",
-    highlightLine: "EVERY SENSE",
-  },
 ];
 
 function getFrameUrl(index) {

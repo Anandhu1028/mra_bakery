@@ -80,8 +80,8 @@ export default function Navbar() {
       <header
         className={`fixed top-0 inset-x-0 z-40 transition-all duration-500 ${
           isScrolledPastHero
-            ? "bg-[#120f0d]/95 backdrop-blur-2xl py-2.5 sm:py-3 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
-            : "bg-gradient-to-b from-[#100d0b]/95 via-[#100d0b]/55 to-transparent py-4 sm:py-6"
+            ? "bg-[#120f0d]/95 backdrop-blur-2xl py-1.5 sm:py-2 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+            : "bg-gradient-to-b from-[#100d0b]/95 via-[#100d0b]/55 to-transparent py-2 sm:py-3"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">

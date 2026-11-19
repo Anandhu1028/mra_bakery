@@ -110,7 +110,7 @@ export function SmoothScrollProvider({ children }) {
     gsap.registerPlugin(ScrollTrigger);
 
     const lenis = new Lenis({
-      lerp: 0.08,
+      lerp: 0.18,
       smoothWheel: true,
       syncTouch: false,
       autoRaf: false,

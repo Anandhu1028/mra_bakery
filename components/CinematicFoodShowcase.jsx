@@ -272,8 +272,10 @@ export default function CinematicFoodShowcase() {
     // Bias towards the top (0.35) so the cherry and top fruits are preserved without cropping
     const dy = Math.round((ch - dh) * 0.35);
 
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, cw, ch);
+    if (dx > 0 || dy > 0 || dw < cw || dh < ch) {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, cw, ch);
+    }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bmp, dx, dy, dw, dh);

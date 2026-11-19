@@ -213,7 +213,6 @@ export default function Hero2Sequence() {
 
       const image = new Image();
       pendingImages.set(index, image);
-      console.log(`[Hero2] Loading frame ${index + 1}/${TOTAL_FRAMES}: ${url}`);
 
       return new Promise((resolve, reject) => {
         let settled = false;
@@ -221,9 +220,6 @@ export default function Hero2Sequence() {
         const finish = () => {
           if (settled) return;
           settled = true;
-          console.log(
-            `[Hero2] Frame ready ${index + 1}: ${image.naturalWidth}x${image.naturalHeight}`
-          );
           resolve(image);
         };
 
@@ -468,12 +464,6 @@ export default function Hero2Sequence() {
       const targetIndex = frameIndexForProgress(progress, firstFrameReady);
       targetProgressRef.current = progress;
       targetFrameRef.current = targetIndex;
-
-      console.log(
-        `[Hero2] Scroll progress: ${progress.toFixed(3)} | section top: ${sectionRect.top.toFixed(
-          1
-        )} | target frame: ${targetIndex + 1}`
-      );
 
       if (firstFrameReady) {
         queueFramesAround(targetIndex);

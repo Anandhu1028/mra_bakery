@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePrefersReducedMotion } from "@/context/SmoothScrollContext";
+import styles from "./Hero1Sequence.module.css";
 
 const FRAME_COUNT = 240;
 const FRAME_AHEAD = 36; // frames loaded in the scroll direction
@@ -14,20 +15,51 @@ const MAX_CONCURRENT_LOADS = 6;
 const TRACK_HEIGHT = "600vh";
 const MAX_DPR = 1.5;
 const DAMPING = 9; // higher = snappier, lower = silkier (try 7 – 12)
+const INTRO_FADE_START = 0.02;
+const INTRO_FADE_END = 0.06;
+const INTRO_SLIDE_DURATION = 1.25;
+const INTRO_FINAL_DELAY = INTRO_SLIDE_DURATION;
 
 const textSections = [
   {
-    start: 1,
-    end: 50,
-    align: "center",
-    variant: "intro",
-    lines: ["WHERE FLAVOUR MEETS"],
-    highlight: "ELEGANCE",
+    start: 51,
+    end: 101,
+    align: "left",
+    variant: "default",
+    title: "A TASTE WORTH REMEMBERING",
+    titleLine: "A TASTE WORTH",
+    highlightLine: "REMEMBERING",
+  },
+  {
+    start: 220,
+    end: FRAME_COUNT,
+    align: "left",
+    variant: "default",
+    title: "CRAFTED TO DELIGHT EVERY SENSE",
+    titleLine: "CRAFTED TO DELIGHT",
+    highlightLine: "EVERY SENSE",
   },
 ];
 
 function getFrameUrl(index) {
   return `/hero/${String(index).padStart(5, "0")}.webp`;
+}
+
+function clamp(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function easeInOutCubic(value) {
+  return value < 0.5
+    ? 4 * value * value * value
+    : 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function getIntroOpacity(progress) {
+  const fadeProgress = clamp(
+    (progress - INTRO_FADE_START) / (INTRO_FADE_END - INTRO_FADE_START)
+  );
+  return 1 - easeInOutCubic(fadeProgress);
 }
 
 export default function Hero1Sequence() {
@@ -36,6 +68,8 @@ export default function Hero1Sequence() {
   const trackRef = useRef(null);
   const stickyRef = useRef(null);
   const canvasRef = useRef(null);
+  const introRef = useRef(null);
+  const introCurtainRef = useRef(null);
   const ctxRef = useRef(null);
 
   const bitmapsRef = useRef(new Array(FRAME_COUNT).fill(null));
@@ -54,6 +88,10 @@ export default function Hero1Sequence() {
   const abortRef = useRef(null);
   const generationRef = useRef(0);
   const requestFramesRef = useRef(null);
+  const readyRef = useRef(false);
+  const firstFrameReadyRef = useRef(false);
+  const pageLoadCompleteRef = useRef(false);
+  const [ready, setReady] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(1);
 
   const getNearestBitmap = useCallback((target) => {
@@ -127,6 +165,11 @@ export default function Hero1Sequence() {
         if (index === 1) {
           lastDrawnRef.current = null;
           drawFrame();
+          firstFrameReadyRef.current = true;
+          if (pageLoadCompleteRef.current) {
+            readyRef.current = true;
+            setReady(true);
+          }
         }
         if (Math.abs(index - frameRef.current) <= 2) {
           lastDrawnRef.current = null;
@@ -142,7 +185,7 @@ export default function Hero1Sequence() {
         }
       }
     },
-    [drawFrame, scheduleDraw]
+    [drawFrame, scheduleDraw, setReady]
   );
 
   const requestFrames = useCallback(
@@ -210,6 +253,13 @@ export default function Hero1Sequence() {
 
       const next = settled ? target : current + diff * (1 - Math.exp(-DAMPING * dt));
       currentProgressRef.current = next;
+      const introOpacity = readyRef.current ? getIntroOpacity(next) : 0;
+      if (introRef.current) introRef.current.style.opacity = String(introOpacity);
+      if (introCurtainRef.current) {
+        introCurtainRef.current.style.opacity = String(
+          readyRef.current ? introOpacity : 1
+        );
+      }
 
       const frame = Math.max(
         1,
@@ -239,6 +289,20 @@ export default function Hero1Sequence() {
     const sticky = stickyRef.current;
     const canvas = canvasRef.current;
     if (!track || !sticky || !canvas) return undefined;
+
+    const handlePageLoad = () => {
+      pageLoadCompleteRef.current = true;
+      if (firstFrameReadyRef.current && !readyRef.current) {
+        readyRef.current = true;
+        setReady(true);
+      }
+    };
+
+    if (document.readyState === "complete") {
+      handlePageLoad();
+    } else {
+      window.addEventListener("load", handlePageLoad, { once: true });
+    }
 
     generationRef.current++;
     abortRef.current = new AbortController();
@@ -272,6 +336,7 @@ export default function Hero1Sequence() {
     };
 
     resizeCanvas();
+    loadFrame(1, generationRef.current);
     window.addEventListener("resize", onResize, { passive: true });
 
     let scrollContext;
@@ -284,6 +349,18 @@ export default function Hero1Sequence() {
         scrub: true,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
+          const introOpacity = readyRef.current
+            ? getIntroOpacity(self.progress)
+            : 0;
+          if (introRef.current) {
+            introRef.current.style.opacity = String(introOpacity);
+          }
+          if (introCurtainRef.current) {
+            introCurtainRef.current.style.opacity = String(
+              readyRef.current ? introOpacity : 1
+            );
+          }
+
           if (prefersReducedMotion) {
             const frame = Math.max(
               1,
@@ -336,6 +413,7 @@ export default function Hero1Sequence() {
       scrollContext?.revert();
       visObserver.disconnect();
       preObserver.disconnect();
+      window.removeEventListener("load", handlePageLoad);
       window.removeEventListener("resize", onResize);
       clearTimeout(resizeTimer);
       if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
@@ -347,7 +425,15 @@ export default function Hero1Sequence() {
       bitmapsRef.current.fill(null);
       pendingRef.current.clear();
     };
-  }, [drawFrame, prefersReducedMotion, requestFrames, scheduleDraw, startLoop]);
+  }, [
+    drawFrame,
+    loadFrame,
+    prefersReducedMotion,
+    requestFrames,
+    scheduleDraw,
+    setReady,
+    startLoop,
+  ]);
 
   return (
     <section
@@ -366,6 +452,95 @@ export default function Hero1Sequence() {
           aria-hidden="true"
           className="absolute inset-0 block h-full w-full"
         />
+        <div
+          ref={introCurtainRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-20 bg-black"
+          style={{ opacity: 1 }}
+        />
+        {ready && (
+          <div
+            ref={introRef}
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center px-4 text-center"
+            style={{ opacity: 1 }}
+          >
+            <h1
+              aria-label="WHERE FLAVOUR MEETS ELEGANCE"
+              className="flex flex-col items-center justify-center gap-1 font-extrabold uppercase leading-[1.05] tracking-tight sm:flex-row sm:gap-[0.3em]"
+              style={{ fontSize: "clamp(1.5rem, 5vw, 4.5rem)" }}
+            >
+              <motion.span
+                className={`${styles.introHalf} ${styles.leftHalf}`}
+                initial={{ x: "-100vw", opacity: 0, "--fade": "38%" }}
+                animate={{ x: 0, opacity: 1, "--fade": "0%" }}
+                transition={{
+                  x: {
+                    duration: INTRO_SLIDE_DURATION,
+                    ease: [0.22, 1, 0.36, 1],
+                  },
+                  opacity: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                  "--fade": {
+                    duration: 0.45,
+                    delay: INTRO_FINAL_DELAY,
+                    ease: [0.22, 1, 0.36, 1],
+                  },
+                }}
+              >
+                <span>WHERE FLAVOUR</span>
+                <motion.span
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-gradient-to-b from-white to-[#d1d5db] bg-clip-text text-transparent"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: INTRO_FINAL_DELAY,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  WHERE FLAVOUR
+                </motion.span>
+              </motion.span>
+              <motion.span
+                className={`${styles.introHalf} ${styles.rightHalf}`}
+                initial={{ x: "100vw", opacity: 0, "--fade": "38%" }}
+                animate={{ x: 0, opacity: 1, "--fade": "0%" }}
+                transition={{
+                  x: {
+                    duration: INTRO_SLIDE_DURATION,
+                    ease: [0.22, 1, 0.36, 1],
+                  },
+                  opacity: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                  "--fade": {
+                    duration: 0.45,
+                    delay: INTRO_FINAL_DELAY,
+                    ease: [0.22, 1, 0.36, 1],
+                  },
+                }}
+              >
+                <span>MEETS ELEGANCE</span>
+                <motion.span
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: INTRO_FINAL_DELAY,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  <span className="bg-gradient-to-b from-white to-[#d1d5db] bg-clip-text text-transparent">
+                    MEETS{" "}
+                  </span>
+                  <span className="bg-[linear-gradient(90deg,#ff4b5c_0%,#c8102e_100%)] bg-clip-text text-transparent">
+                    ELEGANCE
+                  </span>
+                </motion.span>
+              </motion.span>
+            </h1>
+          </div>
+        )}
         {(() => {
           const activeSection = textSections.find(
             (section) =>
@@ -374,10 +549,7 @@ export default function Hero1Sequence() {
 
           if (!activeSection) return null;
           const activeSectionIndex = textSections.indexOf(activeSection);
-          const alignmentClasses =
-            activeSection.align === "center"
-              ? "items-center justify-center text-center"
-              : "items-center justify-start text-left pl-6";
+          const alignmentClasses = "items-center justify-start text-left pl-6 md:pl-16";
 
           return (
             <AnimatePresence mode="wait">
@@ -386,82 +558,38 @@ export default function Hero1Sequence() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={
-                  activeSection.variant === "intro"
-                    ? { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
-                    : { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
-                }
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                 className={`pointer-events-none absolute inset-0 z-30 flex ${alignmentClasses}`}
               >
-                {activeSection.variant === "intro" ? (
-                  <div className="w-full max-w-[92rem] px-5">
-                    <motion.h1
-                      initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
-                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, y: -12 }}
-                      transition={{
-                        duration: 0.8,
-                        delay: 0.15,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
+                <div className="w-full max-w-5xl px-5">
+                  <div className="flex items-center gap-4">
+                    <motion.span
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 82, opacity: 1 }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                      className="block w-1 shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-800"
+                      aria-hidden="true"
+                    />
+                    <h1
+                      className="text-4xl font-extrabold uppercase leading-[1.05] tracking-tight"
+                      style={{ fontSize: "45px" }}
                     >
-                      <span className="block whitespace-nowrap bg-gradient-to-b from-white to-white/70 bg-clip-text text-5xl font-extrabold uppercase leading-[0.95] tracking-tight text-transparent md:text-7xl lg:text-8xl">
-                        {activeSection.lines[0]}
+                      <span className="block text-[#f7f0df]">
+                        {activeSection.titleLine ?? activeSection.title}
                       </span>
-                    </motion.h1>
-                    <motion.div
-                      initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
-                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, y: -12 }}
-                      transition={{
-                        duration: 0.8,
-                        delay: 0.45,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className="mt-1 bg-[linear-gradient(to_bottom,#ef4444_0%,#e11d24_28%,#b91c1c_58%,#7f1515_78%,#3f0707_100%)] bg-clip-text text-5xl font-extrabold uppercase leading-[0.95] tracking-tight text-transparent drop-shadow-[0_0_18px_rgba(220,38,38,0.7)] drop-shadow-[0_0_36px_rgba(185,28,28,0.42)] md:text-7xl lg:text-8xl"
-                    >
-                      {activeSection.highlight}
-                    </motion.div>
-                    <div className="absolute inset-x-0 bottom-8 flex justify-center md:bottom-10">
-                      <span
-                        className="block h-8 w-5 rounded-full border border-white/40"
-                        aria-label="Scroll"
-                      >
-                        <span className="mx-auto mt-1.5 block h-1.5 w-1.5 animate-bounce rounded-full bg-white/70" />
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full max-w-5xl px-5">
-                    <div className="flex items-center gap-4">
-                      <motion.span
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 82, opacity: 1 }}
-                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                        className="block w-1 shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-800"
-                        aria-hidden="true"
-                      />
-                      <h1
-                        className="text-4xl font-extrabold uppercase leading-[1.05] tracking-tight"
-                        style={{ fontSize: "45px" }}
-                      >
-                        <span className="block text-[#f7f0df]">
-                          {activeSection.titleLine ?? activeSection.title}
+                      {activeSection.highlightLine && (
+                        <span className="mt-1 block bg-[linear-gradient(to_bottom,#ef4444_0%,#dc2626_38%,#7f1515_72%,#220404_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(220,38,38,0.38)]">
+                          {activeSection.highlightLine}
                         </span>
-                        {activeSection.highlightLine && (
-                          <span className="mt-1 block bg-[linear-gradient(to_bottom,#ef4444_0%,#dc2626_38%,#7f1515_72%,#220404_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(220,38,38,0.38)]">
-                            {activeSection.highlightLine}
-                          </span>
-                        )}
-                      </h1>
-                    </div>
-                    {activeSection.subtitle && (
-                      <p className="mt-4 max-w-xl text-base text-white/70 md:text-lg">
-                        {activeSection.subtitle}
-                      </p>
-                    )}
+                      )}
+                    </h1>
                   </div>
-                )}
+                  {activeSection.subtitle && (
+                    <p className="mt-4 max-w-xl text-base text-white/70 md:text-lg">
+                      {activeSection.subtitle}
+                    </p>
+                  )}
+                </div>
               </motion.div>
             </AnimatePresence>
           );

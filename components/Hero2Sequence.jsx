@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useSmoothScroll } from "@/context/SmoothScrollContext";
 
 const FIRST_FRAME_NUMBER = 1;
 const LAST_FRAME_NUMBER = 197;
@@ -12,19 +13,26 @@ const FRAME_NUMBERS = Array.from(
 const FRAME_URLS = FRAME_NUMBERS.map(
   (frame) => `/hero1/frame_${String(frame).padStart(3, "0")}.png`
 );
-const TOTAL_FRAMES = FRAME_URLS.length;
+const TOTAL_FRAMES = FRAME_URLS.length; // 195 frames
+
+// Scroll phases (screen stays pinned through all of them)
+// Phase A: Text fully joins and stays frozen
+// Phase B: Text fades out while screen remains pinned
+// Phase C: Hero 1 frame 001 fades in
+// Phase D: Frame 001 remains completely frozen until fully visible
+// Phase E: Scrolling advances frames 001-197 smoothly
+// Phase F: Release sticky container after frame 197 to reveal next section
 const PHASES = {
-  textIn: [0, 0.12],
-  hold: [0.12, 0.25],
-  textOut: [0.25, 0.37],
-  frameIn: [0.37, 0.5],
-  play: [0.5, 1],
+  hold: [0, 0.16],              // Phase A: text fully joined & stable
+  textOut: [0.16, 0.28],         // Phase B: text fades out
+  frameIn: [0.28, 0.40],         // Phase C: Hero 1 frame 1 fades in
+  firstFrameLock: [0.40, 0.50],  // Phase D: frame 1 fully visible & frozen
+  play: [0.50, 1.0],            // Phase E: frames 1-197 advance
 };
+
 const SCROLL_HEIGHT_VH = 700;
-const LERP = 0.12;
-const INTRO_REVEAL_DURATION_MS = 1400;
-const HERO1_PRELOAD_PROGRESS = 0.65;
-const INITIAL_PRELOAD_COUNT = 30;
+const LERP = 0.22;
+const INITIAL_PRELOAD_COUNT = 40;
 const FRAME_AHEAD = 36;
 const FRAME_BEHIND = 12;
 const MAX_CONCURRENT_LOADS = 6;
@@ -40,20 +48,19 @@ function easeInOutCubic(value) {
     : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
-function frameIndexForProgress(progress) {
+function frameIndexForProgress(progress, firstFrameReady) {
+  if (!firstFrameReady) return 0;
   const [playStart, playEnd] = PHASES.play;
+  if (progress < playStart) return 0;
   const frameProgress = clamp((progress - playStart) / (playEnd - playStart));
-  return Math.round(frameProgress * (TOTAL_FRAMES - 1));
+  return Math.min(TOTAL_FRAMES - 1, Math.round(frameProgress * (TOTAL_FRAMES - 1)));
 }
 
 export default function Hero2Sequence() {
+  const { markImagesReady } = useSmoothScroll() || {};
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
-  const eyebrowRef = useRef(null);
-  const headlineFirstRef = useRef(null);
-  const headlineSecondRef = useRef(null);
-  const subtitleRef = useRef(null);
-  const accentLineRef = useRef(null);
+  const textWrapRef = useRef(null);
   const imagesRef = useRef(new Array(TOTAL_FRAMES).fill(null));
   const targetProgressRef = useRef(0);
   const currentProgressRef = useRef(0);
@@ -62,12 +69,13 @@ export default function Hero2Sequence() {
   useEffect(() => {
     const section = sectionRef.current;
     const canvas = canvasRef.current;
+    const textWrap = textWrapRef.current;
     const images = imagesRef.current;
     if (!section || !canvas) return undefined;
 
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) {
-      console.error("Unable to create a 2D context for Hero2Sequence.");
+      console.error("[Hero2] Unable to create a 2D context for Hero2Sequence.");
       return undefined;
     }
 
@@ -80,78 +88,64 @@ export default function Hero2Sequence() {
     let lastRequestedFrame = -1;
     let lastEvictedFrame = -Infinity;
     let firstFrameReady = false;
-    let preloadThresholdReached = false;
     let initialBatchStarted = false;
     let disposed = false;
-    let introStartTime = null;
+    let lastLoggedPhase = "";
 
-    const updateRevealElement = (element, enterProgress, exitProgress, delay) => {
-      if (!element) return;
-
-      const revealProgress = easeInOutCubic(
-        clamp((enterProgress - delay) / (1 - delay))
-      );
-      const opacity = revealProgress * (1 - exitProgress);
-      const translateY = (1 - revealProgress) * 30 - exitProgress * 16;
-      const scale = 1 - exitProgress * 0.02;
-      const blur = (1 - revealProgress) * 10 + exitProgress;
-
-      element.style.opacity = String(opacity);
-      element.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale})`;
-      element.style.filter = `blur(${blur}px)`;
+    const getActivePhase = (progress) => {
+      if (progress < PHASES.hold[1]) return "A: text joined & frozen";
+      if (progress < PHASES.textOut[1]) return "B: text fading out";
+      if (progress < PHASES.frameIn[1]) return "C: frame 001 revealing";
+      if (progress < PHASES.firstFrameLock[1]) return "D: frame 001 frozen";
+      if (progress < PHASES.play[1]) return "E: frames 001-197 playing";
+      return "F: complete, revealing next section";
     };
 
-    const updatePhaseStyles = (progress, loadRevealProgress) => {
-      const [textInStart, textInEnd] = PHASES.textIn;
-      const [textOutStart, textOutEnd] = PHASES.textOut;
-      const [frameInStart, frameInEnd] = PHASES.frameIn;
-      const scrollEnterProgress = easeInOutCubic(
-        clamp((progress - textInStart) / (textInEnd - textInStart))
-      );
-      const enterProgress = Math.max(
-        scrollEnterProgress,
-        easeInOutCubic(loadRevealProgress)
-      );
-      const exitProgress = easeInOutCubic(
-        clamp((progress - textOutStart) / (textOutEnd - textOutStart))
-      );
-      const frameInProgress = easeInOutCubic(
-        clamp((progress - frameInStart) / (frameInEnd - frameInStart))
-      );
+    const updatePhaseStyles = (progress) => {
+      const [outStart, outEnd] = PHASES.textOut;
+      const [inStart, inEnd] = PHASES.frameIn;
 
-      canvas.style.opacity = String(frameInProgress);
-      updateRevealElement(eyebrowRef.current, enterProgress, exitProgress, 0);
-      updateRevealElement(
-        headlineFirstRef.current,
-        enterProgress,
-        exitProgress,
-        0.16
-      );
-      updateRevealElement(
-        headlineSecondRef.current,
-        enterProgress,
-        exitProgress,
-        0.34
-      );
-      updateRevealElement(
-        subtitleRef.current,
-        enterProgress,
-        exitProgress,
-        0.56
-      );
+      let textExit = 0;
+      if (progress >= outStart) {
+        textExit = easeInOutCubic(clamp((progress - outStart) / (outEnd - outStart)));
+      }
 
-      if (accentLineRef.current) {
-        const accentProgress = easeInOutCubic(
-          clamp((enterProgress - 0.48) / 0.52)
-        );
-        accentLineRef.current.style.width = `${accentProgress * 120}px`;
-        accentLineRef.current.style.opacity = String(
-          accentProgress * (1 - exitProgress)
+      let frameVisibility = 0;
+      if (firstFrameReady) {
+        if (progress < inStart) {
+          frameVisibility = 0;
+        } else if (progress < inEnd) {
+          frameVisibility = easeInOutCubic(clamp((progress - inStart) / (inEnd - inStart)));
+        } else {
+          frameVisibility = 1;
+        }
+      }
+
+      if (textWrap) {
+        textWrap.style.opacity = String(1 - textExit);
+        textWrap.style.transform = `translate3d(0, ${-textExit * 24}px, 0) scale(${
+          1 - textExit * 0.02
+        })`;
+        textWrap.style.filter =
+          textExit > 0.001 ? `blur(${textExit * 8}px)` : "none";
+        textWrap.style.pointerEvents = textExit > 0.95 ? "none" : "auto";
+      }
+
+      canvas.style.opacity = String(frameVisibility);
+
+      const activePhase = getActivePhase(progress);
+      if (activePhase !== lastLoggedPhase) {
+        lastLoggedPhase = activePhase;
+        const currentFrame = frameIndexForProgress(progress, firstFrameReady) + 1;
+        console.log(
+          `[Hero2] Active phase: ${activePhase} | progress: ${progress.toFixed(
+            3
+          )} | frame: ${currentFrame}`
         );
       }
     };
 
-    const drawFrame = (requestedFrame) => {
+    const drawFrame = (requestedFrame, force = false) => {
       if (!canvas.width || !canvas.height) return;
 
       let frameIndex = -1;
@@ -161,7 +155,6 @@ export default function Hero2Sequence() {
           break;
         }
       }
-
       if (frameIndex < 0) {
         for (let index = requestedFrame + 1; index < TOTAL_FRAMES; index += 1) {
           if (images[index]) {
@@ -170,10 +163,12 @@ export default function Hero2Sequence() {
           }
         }
       }
-
-      if (frameIndex < 0 || frameIndex === lastDrawnFrame) return;
+      if (frameIndex < 0) return;
+      if (!force && frameIndex === lastDrawnFrame) return;
 
       const image = images[frameIndex];
+      if (!image || !image.naturalWidth || !image.naturalHeight) return;
+
       const scale = Math.max(
         canvas.width / image.naturalWidth,
         canvas.height / image.naturalHeight
@@ -188,20 +183,68 @@ export default function Hero2Sequence() {
     };
 
     const loadFrame = (index) => {
-      const image = new Image();
       const url = FRAME_URLS[index];
-      image.decoding = "async";
-      pendingImages.set(index, image);
+      if (!url) return Promise.reject(new Error(`Invalid frame index ${index}`));
 
-      if (typeof image.decode === "function") {
-        image.src = url;
-        return image.decode().then(() => image);
-      }
+      const image = new Image();
+      pendingImages.set(index, image);
+      console.log(`[Hero2] Loading frame ${index + 1}/${TOTAL_FRAMES}: ${url}`);
 
       return new Promise((resolve, reject) => {
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error(`Unable to load ${url}`));
+        let settled = false;
+
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          console.log(
+            `[Hero2] Frame ready ${index + 1}: ${image.naturalWidth}x${image.naturalHeight}`
+          );
+          resolve(image);
+        };
+
+        const fail = (err) => {
+          if (settled) return;
+          settled = true;
+          console.error(`[Hero2] Failed to load frame ${index + 1} (${url}):`, err);
+          reject(new Error(`Unable to load ${url}`));
+        };
+
+        const tryDecodeThenFinish = () => {
+          if (typeof image.decode === "function") {
+            image
+              .decode()
+              .then(() => {
+                finish();
+              })
+              .catch((decodeErr) => {
+                console.warn(
+                  `[Hero2] Decode failed for frame ${index + 1}, using onload fallback:`,
+                  decodeErr
+                );
+                if (image.naturalWidth > 0) {
+                  finish();
+                } else {
+                  fail(decodeErr);
+                }
+              });
+          } else {
+            finish();
+          }
+        };
+
+        image.onload = () => {
+          tryDecodeThenFinish();
+        };
+
+        image.onerror = (err) => {
+          fail(err);
+        };
+
         image.src = url;
+
+        if (image.complete && image.naturalWidth > 0) {
+          tryDecodeThenFinish();
+        }
       });
     };
 
@@ -217,6 +260,20 @@ export default function Hero2Sequence() {
         return;
       }
       queuedFrames.add(index);
+    };
+
+    const startInitialBatch = () => {
+      if (initialBatchStarted) return;
+      initialBatchStarted = true;
+      console.log(`[Hero2] Starting initial preload batch (1-${INITIAL_PRELOAD_COUNT})`);
+      for (
+        let index = 1;
+        index < Math.min(INITIAL_PRELOAD_COUNT, TOTAL_FRAMES);
+        index += 1
+      ) {
+        queueFrame(index);
+      }
+      pumpQueue();
     };
 
     const pumpQueue = () => {
@@ -243,11 +300,29 @@ export default function Hero2Sequence() {
               image.removeAttribute("src");
               return;
             }
-
             images[nextIndex] = image;
-            if (nextIndex === 0) firstFrameReady = true;
-            drawFrame(frameIndexForProgress(currentProgressRef.current));
-            startInitialBatch();
+            if (nextIndex === 0) {
+              firstFrameReady = true;
+              console.log(
+                `[Hero2] First frame ready: ${image.naturalWidth}x${image.naturalHeight}`
+              );
+              try {
+                markImagesReady?.("hero");
+              } catch (_) {}
+              resizeCanvas();
+              drawFrame(0, true);
+              console.log("[Hero2] Initial frame drawn successfully onto canvas");
+              updatePhaseStyles(currentProgressRef.current);
+              startInitialBatch();
+            } else {
+              const currentFrame = frameIndexForProgress(
+                currentProgressRef.current,
+                firstFrameReady
+              );
+              if (currentFrame === nextIndex) {
+                drawFrame(currentFrame);
+              }
+            }
 
             const rect = section.getBoundingClientRect();
             if (
@@ -262,10 +337,12 @@ export default function Hero2Sequence() {
             if (!disposed) {
               failedFrames.add(nextIndex);
               console.error(
-                `Failed to load Hero2 frame: ${FRAME_URLS[nextIndex]}`,
+                `[Hero2] Failed to load frame: ${FRAME_URLS[nextIndex]}`,
                 error
               );
-              startInitialBatch();
+              if (nextIndex === 0) {
+                startInitialBatch();
+              }
             }
           })
           .finally(() => {
@@ -286,61 +363,40 @@ export default function Hero2Sequence() {
     };
 
     const evictDistantFrames = (targetIndex) => {
-      const displayedIndex = Math.round(
-        currentProgressRef.current * (TOTAL_FRAMES - 1)
+      const displayedIndex = frameIndexForProgress(
+        currentProgressRef.current,
+        firstFrameReady
       );
-      const keepFrom =
-        Math.min(targetIndex, displayedIndex) - FRAME_BEHIND;
-      const keepThrough =
-        Math.max(targetIndex, displayedIndex) + FRAME_AHEAD;
+      const keepFrom = Math.min(targetIndex, displayedIndex) - FRAME_BEHIND - 10;
+      const keepThrough = Math.max(targetIndex, displayedIndex) + FRAME_AHEAD + 10;
 
+      // Keep frame 0 always cached so it never needs reloading
       for (let index = 1; index < images.length; index += 1) {
-        if (
-          images[index] &&
-          (index < keepFrom || index > keepThrough)
-        ) {
+        if (images[index] && (index < keepFrom || index > keepThrough)) {
           images[index].removeAttribute("src");
           images[index] = null;
         }
       }
-
       for (const index of queuedFrames) {
-        if (index < keepFrom || index > keepThrough) queuedFrames.delete(index);
+        if (index > 0 && (index < keepFrom || index > keepThrough)) {
+          queuedFrames.delete(index);
+        }
       }
     };
 
-    const startInitialBatch = () => {
-      if (
-        !preloadThresholdReached ||
-        (!firstFrameReady && !failedFrames.has(0)) ||
-        initialBatchStarted
-      ) {
-        return;
-      }
-
-      initialBatchStarted = true;
-      for (let index = 0; index < Math.min(INITIAL_PRELOAD_COUNT, TOTAL_FRAMES); index += 1) {
-        queueFrame(index);
-      }
-      pumpQueue();
-    };
-
-    const animate = (timestamp) => {
+    const animate = () => {
       animationFrameId = null;
       const target = targetProgressRef.current;
       const difference = target - currentProgressRef.current;
       const next =
-        Math.abs(difference) < 0.001
+        Math.abs(difference) < 0.0005
           ? target
           : currentProgressRef.current + difference * LERP;
       currentProgressRef.current = next;
 
-      const loadRevealProgress =
-        introStartTime === null
-          ? 0
-          : clamp((timestamp - introStartTime) / INTRO_REVEAL_DURATION_MS);
-      updatePhaseStyles(next, loadRevealProgress);
-      const frameIndex = frameIndexForProgress(next);
+      updatePhaseStyles(next);
+
+      const frameIndex = frameIndexForProgress(next, firstFrameReady);
       if (frameIndex !== lastRequestedFrame) {
         lastRequestedFrame = frameIndex;
         drawFrame(frameIndex);
@@ -351,10 +407,7 @@ export default function Hero2Sequence() {
         }
       }
 
-      if (
-        next !== target ||
-        (introStartTime !== null && loadRevealProgress < 1)
-      ) {
+      if (next !== target) {
         animationFrameId = requestAnimationFrame(animate);
       }
     };
@@ -366,13 +419,20 @@ export default function Hero2Sequence() {
     };
 
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const displayWidth = canvas.clientWidth || window.innerWidth;
+      const displayHeight = canvas.clientHeight || window.innerHeight;
+      const targetWidth = Math.max(1, Math.round(displayWidth * dpr));
+      const targetHeight = Math.max(1, Math.round(displayHeight * dpr));
+
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+      }
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
       lastDrawnFrame = -1;
-      drawFrame(frameIndexForProgress(currentProgressRef.current));
+      drawFrame(frameIndexForProgress(currentProgressRef.current, firstFrameReady), true);
     };
 
     const updateScrollState = () => {
@@ -380,35 +440,21 @@ export default function Hero2Sequence() {
       const scrollRange = sectionRect.height - window.innerHeight;
       const progress =
         scrollRange > 0 ? clamp(-sectionRect.top / scrollRange) : 0;
-      const targetIndex = frameIndexForProgress(progress);
+      const targetIndex = frameIndexForProgress(progress, firstFrameReady);
       targetProgressRef.current = progress;
       targetFrameRef.current = targetIndex;
 
-      const hero1 = document.getElementById("hero1");
-      if (hero1) {
-        const hero1Rect = hero1.getBoundingClientRect();
-        const hero1Range = hero1Rect.height - window.innerHeight;
-        const hero1Progress =
-          hero1Range > 0
-            ? clamp(-hero1Rect.top / hero1Range)
-            : hero1Rect.bottom <= 0
-              ? 1
-              : 0;
-        if (hero1Progress >= HERO1_PRELOAD_PROGRESS) {
-          preloadThresholdReached = true;
-          startInitialBatch();
-        }
-      } else if (sectionRect.top <= window.innerHeight * 2) {
-        preloadThresholdReached = true;
-        startInitialBatch();
-      }
+      console.log(
+        `[Hero2] Scroll progress: ${progress.toFixed(3)} | section top: ${sectionRect.top.toFixed(
+          1
+        )} | target frame: ${targetIndex + 1}`
+      );
 
-      if (sectionRect.top <= window.innerHeight && sectionRect.bottom >= 0) {
-        if (firstFrameReady || failedFrames.has(0)) {
-          queueFramesAround(targetIndex);
-        }
+      if (firstFrameReady) {
+        queueFramesAround(targetIndex);
         evictDistantFrames(targetIndex);
       }
+
       scheduleAnimation();
     };
 
@@ -416,28 +462,19 @@ export default function Hero2Sequence() {
       resizeCanvas();
       updateScrollState();
     };
-    const handlePageLoad = () => {
-      if (introStartTime === null) introStartTime = performance.now();
-      scheduleAnimation();
-    };
 
     resizeCanvas();
+    updateScrollState();
     queueFrame(0);
     pumpQueue();
+
     window.addEventListener("scroll", updateScrollState, { passive: true });
     window.addEventListener("resize", handleResize);
-    if (document.readyState === "complete") {
-      handlePageLoad();
-    } else {
-      window.addEventListener("load", handlePageLoad, { once: true });
-    }
-    updateScrollState();
 
     return () => {
       disposed = true;
       window.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("load", handlePageLoad);
       if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       queuedFrames.clear();
       for (const image of pendingImages.values()) image.removeAttribute("src");
@@ -447,11 +484,12 @@ export default function Hero2Sequence() {
       }
       images.fill(null);
     };
-  }, []);
+  }, [markImagesReady]);
 
   return (
     <section
       ref={sectionRef}
+      id="hero"
       className="relative w-full"
       style={{
         height: `${SCROLL_HEIGHT_VH}vh`,
@@ -459,91 +497,60 @@ export default function Hero2Sequence() {
       }}
     >
       <div
-        className="sticky top-0 h-[100dvh] w-full overflow-hidden"
+        className="sticky top-0 h-screen h-[100dvh] w-full overflow-hidden"
         style={{ backgroundColor: BACKGROUND_COLOR }}
       >
         <canvas
           ref={canvasRef}
           aria-hidden="true"
-          className="absolute inset-0 h-full w-full"
-          style={{
-            opacity: 0,
-            backgroundColor: BACKGROUND_COLOR,
-            filter: "none",
-            mixBlendMode: "normal",
-          }}
+          className="absolute inset-0 h-full w-full block"
+          style={{ opacity: 0, backgroundColor: BACKGROUND_COLOR }}
         />
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-3 text-center sm:px-6">
-          <div className="mx-auto w-full max-w-6xl">
-            <div
-              ref={eyebrowRef}
-              className="flex items-center justify-center gap-4 text-xs uppercase tracking-[0.4em] text-white/60 sm:text-sm"
-              style={{
-                opacity: 0,
-                transform: "translate3d(0, 30px, 0)",
-                filter: "blur(10px)",
-              }}
-            >
-              <span className="h-px w-10 shrink-0 bg-red-600" aria-hidden="true" />
-              <span>OUR SPECIALITIES</span>
-              <span className="h-px w-10 shrink-0 bg-red-600" aria-hidden="true" />
-            </div>
 
-            <h1 className="mt-6 text-3xl font-extrabold uppercase leading-[1.05] tracking-[-0.06em] md:text-6xl md:tracking-tight lg:text-7xl">
-              <span
-                ref={headlineFirstRef}
-                className="block bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent"
-                style={{
-                  opacity: 0,
-                  transform: "translate3d(0, 30px, 0)",
-                  filter: "blur(10px)",
-                }}
-              >
-                CRAFTED WITH{" "}
-                <span className="bg-gradient-to-r from-red-500 via-red-600 to-red-800 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(220,38,38,0.4)]">
-                  PASSION,
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-3 text-center sm:px-6">
+          <div
+            ref={textWrapRef}
+            className="mx-auto w-full max-w-6xl will-change-[opacity,transform,filter]"
+          >
+            {/* Heading */}
+            <h1 className="text-2xl font-extrabold uppercase leading-[1.05] tracking-[-0.04em] sm:text-4xl md:text-6xl md:tracking-tight lg:text-7xl">
+              <span className="hero-line hero-line-1">
+                <span className="hero-half hero-left">
+                  <span className="hero-mask hero-grad-white">CRAFTED WITH</span>
+                </span>
+                <span className="hero-half hero-right hero-glow">
+                  <span className="hero-mask hero-grad-red">PASSION,</span>
                 </span>
               </span>
-              <span
-                ref={headlineSecondRef}
-                className="mt-1 block bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent"
-                style={{
-                  opacity: 0,
-                  transform: "translate3d(0, 30px, 0)",
-                  filter: "blur(10px)",
-                }}
-              >
-                SERVED WITH LOVE
+
+              <span className="hero-line hero-line-2 mt-1">
+                <span className="hero-half hero-left">
+                  <span className="hero-mask hero-grad-white">SERVED WITH</span>
+                </span>
+                <span className="hero-half hero-right">
+                  <span className="hero-mask hero-grad-white">LOVE</span>
+                </span>
               </span>
             </h1>
 
             <div
-              ref={accentLineRef}
               aria-hidden="true"
-              className="mx-auto mt-5 h-px max-w-[120px] bg-gradient-to-r from-transparent via-red-600 to-transparent"
-              style={{ width: 0, opacity: 0 }}
+              className="hero-divider mx-auto mt-6 h-px w-[120px]"
+              style={{
+                background:
+                  "linear-gradient(to right, transparent, #dc2626, transparent)",
+              }}
             />
 
-            <p
-              ref={subtitleRef}
-              className="mx-auto mt-6 max-w-2xl text-base text-white/70 md:text-xl"
-              style={{
-                opacity: 0,
-                transform: "translate3d(0, 30px, 0)",
-                filter: "blur(10px)",
-              }}
-            >
-              Every bite tells a story of tradition, taste, and care.
-            </p>
           </div>
         </div>
       </div>
+
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 md:h-28"
         style={{
-          background:
-            `linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, ${BACKGROUND_COLOR} 100%)`,
+          background: `linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, ${BACKGROUND_COLOR} 100%)`,
         }}
       />
     </section>

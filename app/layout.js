@@ -110,7 +110,7 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       dir="ltr"
-      className={`${roboto.variable} ${inter.variable} h-full bg-black antialiased`}
+      className={`${roboto.variable} ${inter.variable} bg-black antialiased`}
     >
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router root layout loads this font globally. */}
@@ -123,7 +123,7 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(restaurantSchema) }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-black text-[#f5ecd9] font-sans selection:bg-[#ef4444] selection:text-black">
+      <body className="min-h-screen bg-black text-[#f5ecd9] font-sans selection:bg-[#ef4444] selection:text-black">
         <AppProvider>
           <SmoothScrollProvider>{children}</SmoothScrollProvider>
         </AppProvider>

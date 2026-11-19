@@ -11,10 +11,14 @@ import Menu from "@/components/Menu";
 import Branches from "@/components/Branches";
 import Reviews from "@/components/Reviews";
 import Footer from "@/components/Footer";
+import PageShell from "@/components/PageShell";
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-black text-[#f5ecd9] overflow-x-clip">
+    <main className="relative min-h-screen bg-black text-[#f5ecd9]">
+      {/* Page Preloader */}
+      <PageShell />
+
       {/* Global Navigation */}
       <Navbar />
 
